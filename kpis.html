@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pulse — KPIs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Pulse — KPIs</h1>
+    <a href="index.html" style="font-size:11px; color:#666; text-decoration:none;">← voltar</a>
+  </div>
+
+  <div style="font-size:10px; color:#666; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:12px;">Geral — Leev</div>
+  <div class="metrics-row">
+    <div id="card-total-geral"></div>
+    <div id="card-tempo-medio-geral"></div>
+  </div>
+
+  <div style="background:#131315; border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:20px; margin-bottom:24px;">
+    <div style="font-size:12px; font-weight:700; margin-bottom:16px;">Tempo médio de resolução por operador (min)</div>
+    <div id="chart-tempo-operador"></div>
+  </div>
+
+   <div class="filters">
+    <div id="filtro-cliente"></div>
+    <button class="period-btn" onclick="setPeriodo(1, this)">hoje</button>
+    <button class="period-btn" onclick="setPeriodo(7, this)">7 dias</button>
+    <button class="period-btn active" onclick="setPeriodo(30, this)">30 dias</button>
+  </div>
+
+  <div class="metrics-row">
+    <div id="card-total"></div>
+    <div id="card-tempo-medio"></div>
+    <div id="card-taxa-bio"></div>
+    <div id="card-tendencia"></div>
+    <div id="card-resolucao-rapida"></div>
+    <div id="card-reincidencia"></div>
+  </div>
+
+  <div style="font-size:10px; color:#666; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:12px; margin-top:24px;">Por cliente</div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;">
+    <div style="background:#131315; border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:20px;">
+      <div style="font-size:12px; font-weight:700; margin-bottom:16px;">Ocorrências por pessoa — tipo de erro</div>
+      <div id="chart-relatado-tipo"></div>
+    </div>
+    <div style="background:#131315; border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:20px;">
+      <div style="font-size:12px; font-weight:700; margin-bottom:16px;">Distribuição por tipo</div>
+      <div id="chart-tipos"></div>
+    </div>
+  </div>
+  <div style="background:#131315; border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:20px; margin-bottom:24px;">
+    <div style="font-size:12px; font-weight:700; margin-bottom:16px;">Volume por relator vs. média</div>
+    <div id="chart-relator-media"></div>
+  </div>
+  <div style="background:#131315; border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:20px; margin-bottom:24px;">
+    <div style="font-size:12px; font-weight:700; margin-bottom:16px;">Volume histórico por tipo</div>
+    <div id="chart-historico"></div>
+  </div>
+
+  <script src="js/supabase.js"></script>
+  <script src="js/components/dropdown.js"></script>
+  <script src="js/components/metricCard.js"></script>
+  <script src="js/components/barHorizontal.js"></script>
+  <script src="js/components/barStacked.js"></script>
+  <script src="js/components/donut.js"></script>
+  <script src="js/kpis.js"></script>
+</body>
+</html>
