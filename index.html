@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Supabase Realtime</title>
+</head>
+<body>
+    <h1>Teste Supabase Realtime</h1>
+    <p>Abra o console (Cmd + Option + J) para ver os logs.</p>
+    <div id="log"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const logDiv = document.getElementById("log");
+
+        function addLog(msg) {
+            console.log(msg);
+            const p = document.createElement("p");
+            p.textContent = typeof msg === "string" ? msg : JSON.stringify(msg, null, 2);
+            logDiv.appendChild(p);
+        }
+
+        const sbClient = window.supabase.createClient(
+            "https://buyjbhoyslfdbpmvrvkp.supabase.co",
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1eWpiaG95c2xmZGJwbXZydmtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNTM5MzAsImV4cCI6MjA5MTkyOTkzMH0.92qNTJPdsQEE1SLvAiZ_bly9dy0MpXqzQZ8qNMrwhUY"
+        );
+
+        sbClient
+            .channel("test-realtime")
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "events",
+                },
+                (payload) => {
+                    addLog("🔥 Mudança:");
+                    addLog(payload);
+                }
+            )
+            .subscribe((status) => {
+                addLog("Status: " + status);
+            });
+
+        addLog("🚀 Rodando...");
+    </script>
+</body>
+</html>
