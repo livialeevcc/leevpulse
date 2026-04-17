@@ -1,5 +1,6 @@
 let filtrosAtivos = {};
 let kpiConfigsGlobal = [];
+let abaAtiva = null;
 
 const alturasPorTipo = {
   filtro_periodo: 0,
@@ -11,6 +12,12 @@ const alturasPorTipo = {
   bar_stacked:    4,
   bar_vertical:   5,
 };
+
+function temRealtime(config, tenant) {
+  if (config.realtime === true) return true;
+  if (config.realtime === false) return false;
+  return tenant?.realtime === true;
+}
 
 function calcularUnidade(aba) {
   const configs = kpiConfigsGlobal.filter(c => c.aba === aba);
@@ -36,8 +43,18 @@ async function buscarKpiConfig() {
   const { data } = await sb
     .from('kpi_config')
     .select('*')
+    .eq('tenant_id', getTenantAtivo())
     .order('ordem', { ascending: true });
   return data || [];
+}
+
+async function buscarTenant() {
+  const { data } = await sb
+    .from('tenants')
+    .select('*')
+    .eq('slug', getTenantAtivo())
+    .single();
+  return data;
 }
 
 function getDataInicio() {
@@ -56,6 +73,7 @@ async function buscarEventos(evento) {
     .from('events')
     .select('*')
     .eq('evento', evento)
+    .eq('tenant_id', getTenantAtivo())
     .gte('timestamp', getDataInicio())
     .order('timestamp', { ascending: true });
 
@@ -99,7 +117,6 @@ async function renderGraficos(configs) {
     const dados = await fn(eventos, config.campo_grupo, config.campo_valor);
     const el = document.getElementById(config.elemento_id);
     if (!el) continue;
-    el.innerHTML = '';
 
     const calcularAltura = (tipo) => (alturasPorTipo[tipo] || 4) * unidade - 80;
 
@@ -117,15 +134,18 @@ async function renderGraficos(configs) {
   }
 }
 
+let tenantAtualConfig = null;
+
 async function renderDashboard() {
   kpiConfigsGlobal = await buscarKpiConfig();
+  tenantAtualConfig = await buscarTenant();
   console.log('configs carregadas:', kpiConfigsGlobal.map(c => c.elemento_id + ' → linha_acima:' + c.linha_acima));
   const dashboard = document.getElementById('dashboard');
   dashboard.innerHTML = '';
 
   const abas = [...new Set(kpiConfigsGlobal.map(c => c.aba).filter(Boolean))];
   const hashAba = window.location.hash.replace('#', '');
-  const abaAtiva = abas.includes(hashAba) ? hashAba : abas[0];
+  abaAtiva = abas.includes(hashAba) ? hashAba : abas[0];
 
   const tabsEl = document.createElement('div');
   tabsEl.style.cssText = 'display:flex; gap:4px; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.06);';
@@ -151,10 +171,34 @@ async function renderDashboard() {
 await renderAba(abaAtiva);
   await renderGraficos(kpiConfigsGlobal.filter(c => c.aba === abaAtiva));
 
+
+  const configsRealtime = kpiConfigsGlobal.filter(c => temRealtime(c, tenantAtualConfig));
+  
+  if (configsRealtime.length > 0) {
+    const eventosMonitorados = [...new Set(configsRealtime.map(c => c.evento))];
+    
+    eventosMonitorados.forEach(evento => {
+      sb.channel(`realtime-${getTenantAtivo()}-${evento}`)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'events'
+        }, async (payload) => {
+          const tenantPayload = payload.new?.tenant_id || payload.old?.tenant_id;
+          if (tenantPayload && tenantPayload !== getTenantAtivo()) return;
+          const afetados = configsRealtime.filter(c => c.aba === abaAtiva);
+          await renderGraficos(afetados);
+        })
+        .subscribe((status) => {
+          console.log('status canal realtime:', status);
+        });
+    });
+  }
 }
 
 async function trocarAba(aba) {
   window.location.hash = aba;
+  abaAtiva = aba;
   document.querySelectorAll('.tab-btn').forEach(b => {
     const isAtiva = b.textContent === aba;
     b.style.borderBottom = isAtiva ? '2px solid #00e5a0' : '2px solid transparent';
@@ -293,6 +337,7 @@ const funcoes = {
       .from('events')
       .select('*')
       .eq('evento', 'relato_de_ocorrencia')
+      .eq('tenant_id', getTenantAtivo())
       .gte('timestamp', inicio)
       .order('timestamp', { ascending: true });
 

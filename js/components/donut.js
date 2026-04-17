@@ -2,7 +2,13 @@ function renderDonut({ elementId, labels, valores, height = 350 }) {
   const el = document.getElementById(elementId);
   if (!el) return;
 
-  new ApexCharts(el, {
+  if (graficosInstancias[elementId]) {
+    graficosInstancias[elementId].updateOptions({ labels });
+    graficosInstancias[elementId].updateSeries(valores);
+    return;
+  }
+
+  const chart = new ApexCharts(el, {
     chart: {
       type: 'donut',
       height: height,
@@ -15,5 +21,7 @@ function renderDonut({ elementId, labels, valores, height = 350 }) {
     legend: { position: 'bottom' },
     dataLabels: { enabled: true },
     tooltip: { theme: 'dark' }
-  }).render();
+  });
+  chart.render();
+  graficosInstancias[elementId] = chart;
 }

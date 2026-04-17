@@ -16,7 +16,14 @@ function renderBarHorizontal({ elementId, categorias, valores, label, media, hei
 
   const alturaReal = Math.max(height, categorias.length * 28);
 
-  new ApexCharts(el, {
+
+  if (graficosInstancias[elementId]) {
+    graficosInstancias[elementId].updateOptions({ xaxis: { categories: categorias }, annotations });
+    graficosInstancias[elementId].updateSeries([{ name: label, data: valores }]);
+    return;
+  }
+
+  const chart = new ApexCharts(el, {
     chart: {
       type: 'bar',
       height: alturaReal,
@@ -37,5 +44,7 @@ function renderBarHorizontal({ elementId, categorias, valores, label, media, hei
     yaxis: { labels: { offsetX: 0 } },
     annotations,
     tooltip: { theme: 'dark' }
-  }).render();
+  });
+  chart.render();
+  graficosInstancias[elementId] = chart;
 }

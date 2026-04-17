@@ -2,7 +2,13 @@ function renderBarStacked({ elementId, categorias, series, horizontal = true, he
   const el = document.getElementById(elementId);
   if (!el) return;
 
-  new ApexCharts(el, {
+  if (graficosInstancias[elementId]) {
+    graficosInstancias[elementId].updateOptions({ xaxis: { categories: categorias } });
+    graficosInstancias[elementId].updateSeries(series);
+    return;
+  }
+
+  const chart = new ApexCharts(el, {
     chart: {
       type: 'bar',
       height: height,
@@ -20,5 +26,7 @@ function renderBarStacked({ elementId, categorias, series, horizontal = true, he
     grid: { borderColor: 'rgba(255,255,255,0.06)' },
     legend: { position: 'bottom', offsetY: 0 },
     tooltip: { theme: 'dark' }
-  }).render();
+  });
+  chart.render();
+  graficosInstancias[elementId] = chart;
 }

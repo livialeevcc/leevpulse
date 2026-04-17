@@ -22,19 +22,32 @@
     </div>
   </div>
 
+  <div id="tenant-screen" style="display:none; position:fixed; inset:0; background:#0a0c14; z-index:199; align-items:center; justify-content:center;">
+  <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:36px; width:360px;">
+    <img src="https://i.ibb.co/tMpRCVB9/Ativo-9-Elemento2.png" style="height:28px; margin-bottom:16px;">
+    <h2 style="font-size:16px; font-weight:700; margin-bottom:4px;">Selecione o workspace</h2>
+    <p style="font-size:11px; color:var(--muted); margin-bottom:24px;">Escolha com qual empresa deseja trabalhar</p>
+    <div id="tenant-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+  </div>
+</div>
+
   <div id="action-panel" style="position:fixed; right:0; top:0; bottom:0; width:180px; background:var(--surface); border-left:1px solid rgba(255,255,255,0.06); padding:24px 16px; display:none; flex-direction:column; gap:8px; z-index:50;">
       <div style="font-size:10px; color:#666; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:8px;">ações</div>
       <div id="action-buttons"></div>
     </div>
   <div id="app" style="display:none; margin-right:196px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-      <div style="display:flex; align-items:center; gap:12px;">
-        <img src="https://i.ibb.co/tMpRCVB9/Ativo-9-Elemento2.png" style="height:28px;">
-        <h1>Pulse - ocorrências</h1>
+      <div style="display:flex; flex-direction:column; gap:2px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <img src="https://i.ibb.co/tMpRCVB9/Ativo-9-Elemento2.png" style="height:28px;">
+          <h1>Pulse — ocorrências</h1>
+        </div>
+        <span id="tenant-nome" style="font-size:10px; color:var(--accent); letter-spacing:0.08em; text-transform:uppercase; padding-left:40px;"></span>
       </div>
       <div style="display:flex; align-items:center; gap:16px;">
         <span id="user-email" style="font-size:11px; color:#666;"></span>
         <a href="kpis2.html" style="font-size:11px; color:#666; text-decoration:none; padding:6px 12px; border:1px solid rgba(255,255,255,0.1); border-radius:6px;">KPIs</a>
+        <button onclick="trocarWorkspace()" style="font-size:11px; padding:6px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#666; cursor:pointer;">trocar workspace</button>
         <button onclick="doLogout()" style="font-size:11px; padding:6px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#666; cursor:pointer;">sair</button>
       </div>
     </div>

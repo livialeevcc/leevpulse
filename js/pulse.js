@@ -31,6 +31,7 @@ async function loadSchema(evento) {
     .from('event_schemas')
     .select('*')
     .eq('evento', evento)
+    .eq('tenant_id', getTenantAtivo())
     .order('ordem', { ascending: true });
   return data || [];
 }
@@ -39,17 +40,19 @@ async function loadActions() {
   const { data } = await sb
     .from('event_actions')
     .select('*')
+    .eq('tenant_id', getTenantAtivo())
     .order('ordem', { ascending: true });
   return data || [];
 }
 
 async function loadFonte(fonte, filtro = null) {
+    //ESSAS FONTES PRECISAM SER GENERICAS DEPOIS
   if (fonte === 'clients') {
-    const { data } = await sb.from('clients').select('slug, nome').order('nome');
+    const { data } = await sb.from('clients').select('slug, nome').eq('tenant_id', getTenantAtivo()).order('nome');
     return data?.map(d => ({ value: d.slug, label: d.nome })) || [];
   }
   if (fonte === 'contacts') {
-    let query = sb.from('contacts').select('id, nome').order('nome');
+    let query = sb.from('contacts').select('id, nome').eq('tenant_id', getTenantAtivo()).order('nome');
     if (filtro) query = query.eq('cliente_id', filtro);
     const { data } = await query;
     return data?.map(d => ({ value: d.nome, label: d.nome })) || [];
@@ -126,6 +129,8 @@ async function load(user) {
   currentUser = user;
   document.getElementById('thead').innerHTML = '';
   document.getElementById('tbody').innerHTML = '';
+  document.getElementById('tabs-bar').innerHTML = '';
+  document.getElementById('action-buttons').innerHTML = '';
 
 
   const actions = await loadActions();
@@ -393,6 +398,7 @@ async function switchTab(evento, label, btnEl, action) {
     .from('events')
     .select('*')
     .eq('evento', evento)
+    .eq('tenant_id', getTenantAtivo())
     .order('timestamp', { ascending: false });
 
   data?.forEach(r => addRow(r));
@@ -447,6 +453,7 @@ async function submitForm() {
     case_id: caseId,
     evento: currentEvento,
     operador_id: currentUser?.email || 'leev.user',
+    tenant_id: getTenantAtivo(),
     dados
   });
 
@@ -483,11 +490,66 @@ async function doLogout() {
   await sb.auth.signOut();
 }
 
-function showApp(user) {
+async function showApp(user) {
+if (getTenantAtivo()) {
+    iniciarApp(user);
+    return;
+  }
+  const tenants = await carregarTenants(user.id);
+
+  if (tenants.length === 0) {
+    alert('Você não tem acesso a nenhum workspace.');
+    await sb.auth.signOut();
+    return;
+  }
+
+  if (tenants.length === 1) {
+    setTenantAtivo(tenants[0].tenant_id);
+    iniciarApp(user);
+    return;
+  }
+
+  const list = document.getElementById('tenant-list');
+  list.innerHTML = '';
+  tenants.forEach(t => {
+    const btn = document.createElement('button');
+    btn.textContent = t.tenants.nome;
+    btn.style.cssText = 'width:100%; padding:12px 16px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:13px; cursor:pointer; text-align:left;';
+    btn.onmouseover = () => btn.style.borderColor = 'var(--accent)';
+    btn.onmouseout = () => btn.style.borderColor = 'var(--border)';
+    btn.onclick = () => {
+      setTenantAtivo(t.tenant_id);
+      document.getElementById('tenant-screen').style.display = 'none';
+      iniciarApp(user);
+    };
+    list.appendChild(btn);
+  });
+
   document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('tenant-screen').style.display = 'flex';
+}
+
+function trocarWorkspace() {
+  sessionStorage.removeItem('tenant_ativo');
+  tenantAtivo = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('action-panel').style.display = 'none';
+  loaded = false;
+  const session = sb.auth.getSession();
+  session.then(({ data }) => {
+    if (data.session) showApp(data.session.user);
+  });
+}
+
+function iniciarApp(user) {
+  const tenantNome = document.getElementById('tenant-nome');
+  if (tenantNome) tenantNome.textContent = getTenantAtivo();
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('tenant-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('action-panel').style.display = 'flex';
   document.getElementById('user-email').textContent = user.email;
+  load(user);
 }
 
 function showLogin() {
@@ -498,10 +560,9 @@ function showLogin() {
 let loaded = false;
 
 sb.auth.onAuthStateChange((event, session) => {
-  if (session && !loaded) {
+  if (event === 'SIGNED_IN' && !loaded) {
     loaded = true;
     showApp(session.user);
-    load(session.user);
   }
   if (event === 'SIGNED_OUT') {
     loaded = false;
