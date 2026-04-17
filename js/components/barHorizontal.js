@@ -1,4 +1,4 @@
-function renderBarHorizontal({ elementId, categorias, valores, label, media }) {
+function renderBarHorizontal({ elementId, categorias, valores, label, media, height = 300 }) {
   const el = document.getElementById(elementId);
   if (!el) return;
 
@@ -9,16 +9,21 @@ function renderBarHorizontal({ elementId, categorias, valores, label, media }) {
       strokeDashArray: 4,
       label: {
         text: 'média',
-        style: { color: '#00e5a0', background: 'transparent', fontSize: '11px' }
+        style: { color: '#00e5a0', background: '#131315', border: 'none', fontSize: '11px', fontFamily: 'Montserrat' }
       }
     }]
   } : {};
 
+  const alturaReal = Math.max(height, categorias.length * 28);
+
   new ApexCharts(el, {
     chart: {
       type: 'bar',
-      height: 300,
-      background: 'transparent'
+      height: alturaReal,
+      background: 'transparent',
+      toolbar: { show: true },
+      sparkline: { enabled: false },
+      parentHeightOffset: 0,
     },
     theme: { mode: 'dark' },
     plotOptions: {
@@ -29,6 +34,7 @@ function renderBarHorizontal({ elementId, categorias, valores, label, media }) {
     xaxis: { categories: categorias },
     colors: ['#00e5a0'],
     grid: { borderColor: 'rgba(255,255,255,0.06)' },
+    yaxis: { labels: { offsetX: 0 } },
     annotations,
     tooltip: { theme: 'dark' }
   }).render();

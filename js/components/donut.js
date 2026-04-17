@@ -1,11 +1,11 @@
-function renderDonut({ elementId, labels, valores }) {
+function renderDonut({ elementId, labels, valores, height = 350 }) {
   const el = document.getElementById(elementId);
   if (!el) return;
 
   new ApexCharts(el, {
     chart: {
       type: 'donut',
-      height: 350,
+      height: height,
       background: 'transparent'
     },
     theme: { mode: 'dark' },
