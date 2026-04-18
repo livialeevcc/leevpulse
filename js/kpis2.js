@@ -44,7 +44,7 @@ async function buscarKpiConfig() {
     .from('kpi_config')
     .select('*')
     .eq('tenant_id', getTenantAtivo())
-    .order('ordem', { ascending: true });
+    .order('linha_matriz', { ascending: true });
   return data || [];
 }
 
@@ -58,7 +58,8 @@ async function buscarTenant() {
 }
 
 function getDataInicio() {
-  const periodo = filtrosAtivos['periodo'] || 30;
+  const periodo = filtrosAtivos['periodo'] ?? 0;
+  if (periodo === 0) return null;
   const d = new Date();
   if (periodo === 1) {
     d.setHours(0, 0, 0, 0);
@@ -69,14 +70,17 @@ function getDataInicio() {
 }
 
 async function buscarEventos(evento) {
-  const { data } = await sb
+  let query = sb
     .from('events')
     .select('*')
     .eq('evento', evento)
     .eq('tenant_id', getTenantAtivo())
-    .gte('timestamp', getDataInicio())
     .order('timestamp', { ascending: true });
 
+  const dataInicio = getDataInicio();
+  if (dataInicio) query = query.gte('timestamp', dataInicio);
+
+  const { data } = await query;
   const cliente = filtrosAtivos['cliente'] || '';
   return (data || []).filter(r =>
     !cliente || r.dados?.cliente_id === cliente
@@ -114,7 +118,7 @@ async function renderGraficos(configs) {
     const fn = funcoes[config.funcao];
     if (!fn) continue;
 
-    const dados = await fn(eventos, config.campo_grupo, config.campo_valor);
+    const dados = await fn(eventos, config.campo_grupo, config.campo_valor, config.campo_filtro);
     const el = document.getElementById(config.elemento_id);
     if (!el) continue;
 
@@ -206,6 +210,10 @@ async function trocarAba(aba) {
   });
 
   const conteudo = document.getElementById('aba-conteudo');
+  Object.keys(graficosInstancias).forEach(id => {
+    try { graficosInstancias[id].destroy(); } catch(e) {}
+    delete graficosInstancias[id];
+  });
   conteudo.innerHTML = '';
   document.getElementById('zona-controles').innerHTML = '';
 
@@ -238,7 +246,10 @@ async function renderAba(aba) {
           wrapper.innerHTML = `
             <button class="period-btn" onclick="setPeriodo(1, this)">hoje</button>
             <button class="period-btn" onclick="setPeriodo(7, this)">7 dias</button>
-            <button class="period-btn active" onclick="setPeriodo(30, this)">30 dias</button>
+            <button class="period-btn" onclick="setPeriodo(30, this)">30 dias</button>
+            <button class="period-btn" onclick="setPeriodo(90, this)">3 meses</button>
+            <button class="period-btn" onclick="setPeriodo(180, this)">6 meses</button>
+            <button class="period-btn active" onclick="setPeriodo(0, this)">tudo</button>
           `;
           zonaFiltros.appendChild(wrapper);
         } else if (config.tipo_grafico === 'filtro_cliente') {
@@ -297,6 +308,37 @@ async function renderAba(aba) {
 }
 
 const funcoes = {
+
+  soma_por_grupo: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = campoFiltro
+      ? eventos.filter(r => {
+          const [campo, valor] = campoFiltro.split(':');
+          return r.dados?.[campo] === valor;
+        })
+      : eventos;
+    const map = {};
+    filtrados.forEach(r => {
+      const grupo = r.dados?.[campoGrupo] || '—';
+      const val = parseFloat(r.dados?.[campoValor]?.toString().replace(',', '.') || 0);
+      map[grupo] = (map[grupo] || 0) + (isNaN(val) ? 0 : val);
+    });
+    const categorias = Object.keys(map).sort((a, b) => map[b] - map[a]);
+    return { categorias, valores: categorias.map(k => map[k]) };
+  },
+
+  soma: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = campoFiltro
+      ? eventos.filter(r => {
+          const [campo, valor] = campoFiltro.split(':');
+          return r.dados?.[campo] === valor;
+        })
+      : eventos;
+    const total = filtrados.reduce((acc, r) => {
+      const val = parseFloat(r.dados?.[campoValor]?.toString().replace(',', '.') || 0);
+      return acc + (isNaN(val) ? 0 : val);
+    }, 0);
+    return { valor: 'R$ ' + total.toLocaleString('pt-BR', { minimumFractionDigits: 2 }), sub: 'total no período' };
+  },
 
   taxa_bio: (eventos) => {
     const total = eventos.length;
@@ -358,9 +400,15 @@ const funcoes = {
     return { valor: val !== null ? (val > 0 ? '+' : '') + val + '%' : '—', sub: 'vs semana anterior' };
   },
 
-  contar: (eventos, campoGrupo) => {
+  contar: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = campoFiltro
+      ? eventos.filter(r => {
+          const [campo, valor] = campoFiltro.split(':');
+          return r.dados?.[campo] === valor;
+        })
+      : eventos;
     const map = {};
-    eventos.forEach(r => {
+    filtrados.forEach(r => {
       const val = r.dados?.[campoGrupo] || r[campoGrupo] || '—';
       map[val] = (map[val] || 0) + 1;
     });

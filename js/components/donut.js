@@ -12,7 +12,15 @@ function renderDonut({ elementId, labels, valores, height = 350 }) {
     chart: {
       type: 'donut',
       height: height,
-      background: 'transparent'
+      background: 'transparent',
+    },
+    stroke: { width: 0 },
+    plotOptions: {
+      pie: {
+        donut: {
+          size: '40%'
+        }
+      }
     },
     theme: { mode: 'dark' },
     series: valores,

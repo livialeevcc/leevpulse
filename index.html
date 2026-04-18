@@ -9,20 +9,19 @@
 </head>
 <body>
 
-<div id="login-screen" style="display:flex; position:fixed; inset:0; background:#0c0c0d; z-index:200; align-items:center; justify-content:center;">
+<div id="login-screen" style="display:flex; position:fixed; inset:0; background:var(--bg); z-index:200; align-items:center; justify-content:center;">
     <div style="background:var(--surface); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:36px; width:360px;">
       <h2 style="font-size:16px; font-weight:700; margin-bottom:4px;">Pulse</h2>
       <p style="font-size:11px; color:#666; margin-bottom:24px;">by Leev</p>
       <label style="font-size:10px; color:#666; display:block; margin-bottom:6px;">EMAIL</label>
-      <input id="login-email" type="email" style="width:100%; background:#1a1a1d; border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; color:#e8e8e6; font-size:13px; margin-bottom:16px;">
-      <label style="font-size:10px; color:#666; display:block; margin-bottom:6px;">SENHA</label>
-      <input id="login-password" type="password" style="width:100%; background:#1a1a1d; border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; color:#e8e8e6; font-size:13px; margin-bottom:24px;">
+      <input id="login-email" type="email" style="width:100%; border-radius:6px; padding:8px 12px; font-size:13px; margin-bottom:16px;">
+      <input id="login-password" type="password" style="width:100%; border-radius:6px; padding:8px 12px; font-size:13px; margin-bottom:24px;">
       <button onclick="doLogin()" style="width:100%; font-size:12px; padding:10px; border-radius:6px; border:none; background:#00e5a0; color:#0c0c0d; cursor:pointer; font-weight:500;">entrar</button>
       <p id="login-error" style="font-size:11px; color:#ff4d4d; margin-top:12px; display:none;"></p>
     </div>
   </div>
 
-  <div id="tenant-screen" style="display:none; position:fixed; inset:0; background:#0a0c14; z-index:199; align-items:center; justify-content:center;">
+  <div id="tenant-screen" style="display:none; position:fixed; inset:0; background:var(--bg); z-index:199; align-items:center; justify-content:center;">
   <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:36px; width:360px;">
     <img src="https://i.ibb.co/tMpRCVB9/Ativo-9-Elemento2.png" style="height:28px; margin-bottom:16px;">
     <h2 style="font-size:16px; font-weight:700; margin-bottom:4px;">Selecione o workspace</h2>

@@ -10,9 +10,9 @@ function renderDropdown({ elementId, opcoes, placeholder, onChange }) {
              placeholder="${placeholder || 'buscar...'}"
              oninput="filtrarDropdown('${elementId}', this.value)"
              onfocus="abrirDropdownSimples('${elementId}')"
-             style="background:#1a1a1d; border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; color:#e8e8e6; font-size:11px; width:200px;">
+             style="background:var(--surface2); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; color:#e8e8e6; font-size:11px; width:200px;">
       <div id="dropdown-${elementId}"
-           style="display:none; position:absolute; top:100%; left:0; right:0; background:#1a1a1d; border:1px solid rgba(255,255,255,0.1); border-radius:6px; max-height:200px; overflow-y:auto; z-index:200; margin-top:4px;">
+           style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--surface2); border:1px solid rgba(255,255,255,0.1); border-radius:6px; max-height:200px; overflow-y:auto; z-index:200; margin-top:4px;">
         <div id="dropdown-opts-${elementId}"></div>
       </div>
     </div>`;
@@ -27,7 +27,7 @@ function renderDropdownOpcoes(elementId, opcoes) {
   document.getElementById(`dropdown-opts-${elementId}`).innerHTML = opcoes.map(o => `
     <div onclick="selecionarDropdown('${elementId}', '${o.value}', '${o.label}')"
          style="padding:8px 12px; font-size:11px; color:#ccc; cursor:pointer;"
-         onmouseover="this.style.background='#242428'"
+         onmouseover="this.style.background='var(--surface)'"
          onmouseout="this.style.background='transparent'">
       ${o.label}
     </div>`).join('');

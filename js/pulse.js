@@ -95,8 +95,8 @@ function addRow(r, prepend = false) {
     td.innerHTML = `
       <div style="position:relative; display:inline-block;">
         <span onclick="toggleMenu('${id}')" style="cursor:pointer; font-size:14px; color:#444; padding:4px 8px; border-radius:4px; user-select:none;">⋯</span>
-        <div id="${id}" style="display:none; position:absolute; right:0; top:24px; background:#1a1a1d; border:1px solid rgba(255,255,255,0.1); border-radius:6px; min-width:120px; z-index:50; overflow:hidden;">
-          <div onclick="editRow(${JSON.stringify(r).replace(/"/g, '&quot;')}); toggleMenu('${id}')" style="padding:8px 14px; font-size:11px; color:#ccc; cursor:pointer;" onmouseover="this.style.background='#242428'" onmouseout="this.style.background='transparent'">editar</div>
+        <div id="${id}" style="display:none; position:absolute; right:0; top:24px; background:var(--surface2); border:1px solid rgba(255,255,255,0.1); border-radius:6px; min-width:120px; z-index:50; overflow:hidden;">
+          <div onclick="editRow(${JSON.stringify(r).replace(/"/g, '&quot;')}); toggleMenu('${id}')" style="padding:8px 14px; font-size:11px; color:#ccc; cursor:pointer;" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='transparent'">editar</div>
         </div>
       </div>`;
     tr.appendChild(td);
@@ -169,7 +169,7 @@ function renderCampoFonteHtml(c, opcoes, valorAtual) {
     <div onclick="selecionarOpcao('${c.campo}', '${o.value}', '${o.label}', this)"
          data-value="${o.value}"
          style="padding:8px 12px; font-size:12px; color:#ccc; cursor:pointer;"
-         onmouseover="this.style.background='#242428'"
+         onmouseover="this.style.background='var(--surface)'"
          onmouseout="this.style.background='transparent'">
       ${o.label}
     </div>`).join('');
@@ -183,13 +183,13 @@ function renderCampoFonteHtml(c, opcoes, valorAtual) {
              placeholder="buscar ou adicionar..."
              oninput="this.dataset.value=''; filtrarOpcoes('${c.campo}', '${c.fonte}', this.value)"
              onfocus="abrirDropdown('${c.campo}', '${c.fonte}')"
-             style="width:100%; background:#1a1a1d; border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; color:#e8e8e6; font-size:13px;">
+             style="width:100%; background:var(--surface2); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; color:#e8e8e6; font-size:13px;">
       <div id="dropdown-${c.campo}"
-           style="display:none; position:absolute; top:100%; left:0; right:0; background:#1a1a1d; border:1px solid rgba(255,255,255,0.1); border-radius:6px; max-height:200px; overflow-y:auto; z-index:200; margin-top:4px;">
+           style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--surface2); border:1px solid rgba(255,255,255,0.1); border-radius:6px; max-height:200px; overflow-y:auto; z-index:200; margin-top:4px;">
         <div id="dropdown-opts-${c.campo}">${opts}</div>
         <div id="dropdown-add-${c.campo}"
              style="display:none; padding:8px 12px; font-size:12px; color:#00e5a0; cursor:pointer; border-top:1px solid rgba(255,255,255,0.06);"
-             onmouseover="this.style.background='#242428'"
+             onmouseover="this.style.background='var(--surface)'"
              onmouseout="this.style.background='transparent'">
         </div>
       </div>
@@ -211,7 +211,7 @@ async function abrirDropdown(campo, fonte) {
     <div onclick="selecionarOpcao('${campo}', '${o.value}', '${o.label}', this)"
          data-value="${o.value}"
          style="padding:8px 12px; font-size:12px; color:#ccc; cursor:pointer;"
-         onmouseover="this.style.background='#242428'"
+         onmouseover="this.style.background='var(--surface)'"
          onmouseout="this.style.background='transparent'">
       ${o.label}
     </div>`).join('');
@@ -234,7 +234,7 @@ async function filtrarOpcoes(campo, fonte, busca) {
     <div onclick="selecionarOpcao('${campo}', '${o.value}', '${o.label}', this)"
          data-value="${o.value}"
          style="padding:8px 12px; font-size:12px; color:#ccc; cursor:pointer;"
-         onmouseover="this.style.background='#242428'"
+         onmouseover="this.style.background='var(--surface)'"
          onmouseout="this.style.background='transparent'">
       ${o.label}
     </div>`).join('');
@@ -310,12 +310,12 @@ async function renderCampo(c, valorAtual = '', valorPai = null) {
       input = `<div id="field-${c.campo}" data-value="${valorAtual}" style="padding-top:4px;">${chips}</div>`;
     } else {
       const opts = opcoes.map(o => `<option value="${o.value}" ${o.value === valorAtual ? 'selected' : ''}>${o.label}</option>`).join('');
-      input = `<select id="field-${c.campo}" ${desabilitado ? 'disabled' : ''} onchange="onCampoChange('${c.campo}', this.value)" style="width:100%; background:#1a1a1d; border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; color:${desabilitado ? '#444' : '#e8e8e6'}; font-size:13px;"><option value="">selecione...</option>${opts}</select>`;
+      input = `<select id="field-${c.campo}" ${desabilitado ? 'disabled' : ''} onchange="onCampoChange('${c.campo}', this.value)" style="width:100%; background:var(--surface2); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; color:${desabilitado ? '#444' : '#e8e8e6'}; font-size:13px;"><option value="">selecione...</option>${opts}</select>`;
     }
   } else if (c.tipo === 'textarea') {
-    input = `<textarea id="field-${c.campo}" rows="3" style="width:100%; background:#1a1a1d; border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; color:#e8e8e6; font-size:13px; resize:vertical;">${valorAtual}</textarea>`;
+    input = `<textarea id="field-${c.campo}" rows="3" style="width:100%; background:var(--surface2); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; color:#e8e8e6; font-size:13px; resize:vertical;">${valorAtual}</textarea>`;
   } else {
-    input = `<input id="field-${c.campo}" type="${c.tipo}" value="${valorAtual}" style="width:100%; background:#1a1a1d; border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; color:#e8e8e6; font-size:13px;">`;
+    input = `<input id="field-${c.campo}" type="${c.tipo}" value="${valorAtual}" style="width:100%; background:var(--surface2); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; color:#e8e8e6; font-size:13px;">`;
   }
 
   return `

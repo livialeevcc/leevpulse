@@ -9,7 +9,7 @@ function renderBarHorizontal({ elementId, categorias, valores, label, media, hei
       strokeDashArray: 4,
       label: {
         text: 'média',
-        style: { color: '#00e5a0', background: '#131315', border: 'none', fontSize: '11px', fontFamily: 'Montserrat' }
+        style: { color: '#00e5a0', background: 'var(--surface)', border: 'none', fontSize: '11px', fontFamily: 'Montserrat' }
       }
     }]
   } : {};
