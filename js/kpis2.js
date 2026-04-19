@@ -42,6 +42,7 @@ function extrairDependencias(formula) {
   return formula.match(/[a-z][a-z0-9_]*/g) || [];
 }
 
+
 function resolverFormula(formula, cache) {
   if (!formula) return null;
   let expr = formula;
@@ -53,6 +54,39 @@ function resolverFormula(formula, cache) {
   } catch(e) {
     return null;
   }
+}
+
+function mostrarTooltip(e, texto) {
+  let tip = document.getElementById('kpi-tooltip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'kpi-tooltip';
+    tip.className = 'kpi-tooltip';
+    document.body.appendChild(tip);
+  }
+  tip.textContent = texto;
+  tip.style.display = 'block';
+  tip.style.left = (e.pageX + 12) + 'px';
+  tip.style.top = (e.pageY + 12) + 'px';
+}
+
+function esconderTooltip() {
+  const tip = document.getElementById('kpi-tooltip');
+  if (tip) tip.style.display = 'none';
+}
+
+function montarTooltipFormula(formula, cache) {
+  if (!formula) return '';
+  let exprSubstituida = formula;
+  const linhas = [`Fórmula: ${formula}`];
+  Object.entries(cache).forEach(([id, valor]) => {
+    if (formula.includes(id)) {
+      exprSubstituida = exprSubstituida.replaceAll(id, valor ?? 0);
+      linhas.push(`${id} = ${valor ?? 0}`);
+    }
+  });
+  linhas.push(`= ${exprSubstituida}`);
+  return linhas.join('\n');
 }
 
 function formatarCelulaMatriz(valor, formato) {
@@ -419,16 +453,48 @@ async function renderMatriz(configs) {
     eventosCache[evento] = todos;
   }
 
+const mesesSet = new Set();
+  Object.values(eventosCache).flat().forEach(r => {
+    const d = new Date(r.timestamp);
+    const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    mesesSet.add(mes);
+  });
+  const meses = [...mesesSet].sort();
+
+  const mesSelecionado = filtrosAtivos['mes_matriz'] || meses[meses.length - 1];
+  const [anoSel, mesSel] = mesSelecionado.split('-');
+
   const diasSet = new Set();
   Object.values(eventosCache).flat().forEach(r => {
-    const dia = new Date(r.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    diasSet.add(dia);
+    const d = new Date(r.timestamp);
+    if (d.getFullYear() === parseInt(anoSel) && (d.getMonth() + 1) === parseInt(mesSel)) {
+      const dia = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      diasSet.add(dia);
+    }
   });
   const dias = [...diasSet].sort((a, b) => {
     const [da, ma] = a.split('/');
     const [db, mb] = b.split('/');
-    return new Date(`2025-${ma}-${da}`) - new Date(`2025-${mb}-${db}`);
+    return new Date(`${anoSel}-${ma}-${da}`) - new Date(`${anoSel}-${mb}-${db}`);
   });
+
+  const zonaFiltros = document.getElementById('zona-controles');
+  zonaFiltros.innerHTML = '';
+  const wrapMeses = document.createElement('div');
+  wrapMeses.style.cssText = 'display:flex; gap:8px; margin-left:auto;';
+  meses.forEach(mes => {
+    const [ano, m] = mes.split('-');
+    const label = new Date(ano, m - 1).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    btn.className = 'period-btn' + (mes === mesSelecionado ? ' active' : '');
+    btn.onclick = () => {
+      filtrosAtivos['mes_matriz'] = mes;
+      renderMatriz(configs);
+    };
+    wrapMeses.appendChild(btn);
+  });
+  zonaFiltros.appendChild(wrapMeses);
 
   const grupos = [...new Set(itensMatriz.map(i => i.grupo).filter(Boolean))];
 
@@ -488,7 +554,7 @@ async function renderMatriz(configs) {
         const [d, m] = dia.split('/');
         const eventosDia = eventosItem.filter(r => {
           const rd = new Date(r.timestamp);
-          return rd.getDate() === parseInt(d) && (rd.getMonth() + 1) === parseInt(m);
+          return rd.getDate() === parseInt(d) && (rd.getMonth() + 1) === parseInt(m) && rd.getFullYear() === parseInt(anoSel);
         });
         const dadosDia = item.formula
           ? { valor: resolverFormula(item.formula, cachePorDia[dia]) }
@@ -506,7 +572,7 @@ async function renderMatriz(configs) {
 
       const tr = document.createElement('tr');
       let html = `
-        <td><div class="kpi-label">${def.titulo}<span class="kpi-sub">${def.descricao || ''}</span></div></td>
+        <td><div class="kpi-label" style="${item.formula ? 'cursor:help;' : ''}" data-formula="${item.formula ? montarTooltipFormula(item.formula, cache) : ''}">${def.titulo}<span class="kpi-sub">${def.descricao || ''}</span></div></td>
         <td class="cell" style="font-weight:700; font-size:11px; color:${corAcum === 'verde' ? '#7ec87e' : corAcum === 'laranja' ? '#d4900a' : corAcum === 'vermelho' ? '#e8637a' : 'var(--muted)'};">${formatarCelulaMatriz(valorAcum, def.formato)}</td>
       `;
 
@@ -525,6 +591,13 @@ async function renderMatriz(configs) {
   table.appendChild(tbody);
   wrap.appendChild(table);
   conteudo.appendChild(wrap);
+
+  tbody.querySelectorAll('[data-formula]').forEach(el => {
+    const formula = el.dataset.formula;
+    if (!formula) return;
+    el.addEventListener('mousemove', e => mostrarTooltip(e, formula));
+    el.addEventListener('mouseleave', esconderTooltip);
+  });
 }
 
 renderDashboard();

@@ -135,6 +135,21 @@ td {
   margin-bottom: 28px;
 }
 
+.kpi-tooltip {
+  position: absolute;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 11px;
+  color: var(--text);
+  white-space: pre;
+  z-index: 1000;
+  pointer-events: none;
+  line-height: 1.6;
+  max-width: 320px;
+}
+
 .matriz-wrap { overflow-x: auto; }
 .matriz-table { width: 100%; border-collapse: collapse; min-width: 600px; }
 .matriz-table th { font-size: 9px; color: var(--muted); font-weight: 400; padding: 6px 4px; text-align: center; border-bottom: 1px solid var(--border); }
