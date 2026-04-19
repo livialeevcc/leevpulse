@@ -8,6 +8,8 @@ function renderDonut({ elementId, labels, valores, height = 350 }) {
     return;
   }
 
+  const coresAjustadas = labels.map((_, i) => paletaCores[i % paletaCores.length]);
+
   const chart = new ApexCharts(el, {
     chart: {
       type: 'donut',
@@ -25,7 +27,7 @@ function renderDonut({ elementId, labels, valores, height = 350 }) {
     theme: { mode: 'dark' },
     series: valores,
     labels,
-    colors: ['#ff4d4d', '#ffaa00', '#6b8cff', '#c084fc'],
+    colors: coresAjustadas,
     legend: { position: 'bottom' },
     dataLabels: { enabled: true },
     tooltip: { theme: 'dark' }

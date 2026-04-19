@@ -486,10 +486,6 @@ async function doLogin() {
   }
 }
 
-async function doLogout() {
-  await sb.auth.signOut();
-}
-
 async function showApp(user) {
 if (getTenantAtivo()) {
     iniciarApp(user);
@@ -527,18 +523,6 @@ if (getTenantAtivo()) {
 
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('tenant-screen').style.display = 'flex';
-}
-
-function trocarWorkspace() {
-  sessionStorage.removeItem('tenant_ativo');
-  tenantAtivo = null;
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('action-panel').style.display = 'none';
-  loaded = false;
-  const session = sb.auth.getSession();
-  session.then(({ data }) => {
-    if (data.session) showApp(data.session.user);
-  });
 }
 
 function iniciarApp(user) {

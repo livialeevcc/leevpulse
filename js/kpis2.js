@@ -13,6 +13,57 @@ const alturasPorTipo = {
   bar_vertical:   5,
 };
 
+function ordenarPorDependencia(itens) {
+  const resolvidos = new Set();
+  const resultado = [];
+  const pendentes = [...itens];
+
+  let tentativas = 0;
+  while (pendentes.length > 0 && tentativas < pendentes.length * 2) {
+    const item = pendentes.shift();
+    const deps = extrairDependencias(item.formula);
+    const todasResolvidas = deps.every(d => resolvidos.has(d));
+
+    if (!item.formula || todasResolvidas) {
+      resultado.push(item);
+      resolvidos.add(item.id);
+    } else {
+      pendentes.push(item);
+      tentativas++;
+    }
+  }
+
+  resultado.push(...pendentes);
+  return resultado;
+}
+
+function extrairDependencias(formula) {
+  if (!formula) return [];
+  return formula.match(/[a-z][a-z0-9_]*/g) || [];
+}
+
+function resolverFormula(formula, cache) {
+  if (!formula) return null;
+  let expr = formula;
+  Object.entries(cache).forEach(([id, valor]) => {
+    expr = expr.replaceAll(id, valor ?? 0);
+  });
+  try {
+    return funcoes.arredondar(Function('"use strict"; return (' + expr + ')')());
+  } catch(e) {
+    return null;
+  }
+}
+
+function formatarCelulaMatriz(valor, formato) {
+  if (valor === null || valor === undefined || isNaN(valor)) return '—';
+  if (formato === 'moeda') return 'R$ ' + valor.toLocaleString('pt-BR', { minimumFractionDigits: 0 });
+  if (formato === 'percentual') return valor.toFixed(1) + '%';
+  if (formato) return valor.toLocaleString('pt-BR') + ' ' + formato;
+  return valor.toLocaleString('pt-BR');
+}
+
+
 function temRealtime(config, tenant) {
   if (config.realtime === true) return true;
   if (config.realtime === false) return false;
@@ -55,6 +106,36 @@ async function buscarTenant() {
     .eq('slug', getTenantAtivo())
     .single();
   return data;
+}
+
+async function buscarMatriz(matrizId) {
+  const { data } = await sb
+    .from('kpi_matriz')
+    .select('*')
+    .eq('tenant_id', getTenantAtivo())
+    .eq('matriz_id', matrizId)
+    .order('ordem', { ascending: true });
+  return data || [];
+}
+
+function getCorMatriz(valor, tipo, limiteVerde, limiteLaranja) {
+  if (valor === null || valor === undefined) return 'neutro';
+  if (tipo === 'maior_melhor') {
+    if (valor >= limiteVerde) return 'verde';
+    if (valor >= limiteLaranja) return 'laranja';
+    return 'vermelho';
+  } else {
+    if (valor <= limiteVerde) return 'verde';
+    if (valor <= limiteLaranja) return 'laranja';
+    return 'vermelho';
+  }
+}
+
+function formatarValorMatriz(valor, formato) {
+  if (valor === null || valor === undefined) return '—';
+  if (formato === 'moeda') return 'R$ ' + valor.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  if (formato === 'percentual') return valor.toFixed(1) + '%';
+  return valor.toLocaleString('pt-BR');
 }
 
 function getDataInicio() {
@@ -102,6 +183,7 @@ function setPeriodo(dias, btn) {
 }
 
 async function renderGraficos(configs) {
+  resetMetricCardIndex();
   const eventoIds = [...new Set(configs.map(c => c.evento))];
 
   const unidade = calcularUnidade(configs[0]?.aba);
@@ -119,13 +201,14 @@ async function renderGraficos(configs) {
     if (!fn) continue;
 
     const dados = await fn(eventos, config.campo_grupo, config.campo_valor, config.campo_filtro);
+    if (config.descricao) dados.sub = config.descricao;
     const el = document.getElementById(config.elemento_id);
     if (!el) continue;
 
     const calcularAltura = (tipo) => (alturasPorTipo[tipo] || 4) * unidade - 80;
 
     if (config.tipo_grafico === 'metric_card') {
-      renderMetricCard({ elementId: config.elemento_id, label: config.titulo, value: dados.valor, sub: dados.sub });
+      renderMetricCard({ elementId: config.elemento_id, label: config.titulo, value: dados.valor, sub: dados.sub, formato: config.formato });
     } else if (config.tipo_grafico === 'donut') {
       renderDonut({ elementId: config.elemento_id, labels: dados.categorias, valores: dados.valores, height: calcularAltura(config.tipo_grafico) });
     } else if (config.tipo_grafico === 'bar_horizontal') {
@@ -142,7 +225,11 @@ let tenantAtualConfig = null;
 
 async function renderDashboard() {
   kpiConfigsGlobal = await buscarKpiConfig();
+  resetMetricCardIndex();
   tenantAtualConfig = await buscarTenant();
+  try {
+    await import(`./funcoes/${getTenantAtivo()}.js`);
+  } catch(e) {}
   console.log('configs carregadas:', kpiConfigsGlobal.map(c => c.elemento_id + ' → linha_acima:' + c.linha_acima));
   const dashboard = document.getElementById('dashboard');
   dashboard.innerHTML = '';
@@ -157,7 +244,7 @@ async function renderDashboard() {
     const btn = document.createElement('button');
     btn.textContent = aba;
     btn.className = 'tab-btn';
-    btn.style.cssText = `font-size:11px; padding:8px 16px; background:transparent; border:none; border-bottom:2px solid ${aba === abaAtiva ? '#00e5a0' : 'transparent'}; color:${aba === abaAtiva ? '#00e5a0' : '#666'}; cursor:pointer;`;
+    btn.style.cssText = `font-size:11px; padding:8px 16px; background:${aba === abaAtiva ? 'rgba(200,217,74,0.06)' : 'transparent'}; border:none; border-bottom:2px solid ${aba === abaAtiva ? 'var(--accent)' : 'transparent'}; color:${aba === abaAtiva ? 'var(--accent)' : '#666'}; cursor:pointer; border-radius:6px 6px 0 0;`;
     btn.onclick = () => trocarAba(aba);
     tabsEl.appendChild(btn);
   });
@@ -203,10 +290,12 @@ await renderAba(abaAtiva);
 async function trocarAba(aba) {
   window.location.hash = aba;
   abaAtiva = aba;
+  resetMetricCardIndex();
   document.querySelectorAll('.tab-btn').forEach(b => {
     const isAtiva = b.textContent === aba;
-    b.style.borderBottom = isAtiva ? '2px solid #00e5a0' : '2px solid transparent';
-    b.style.color = isAtiva ? '#00e5a0' : '#666';
+    b.style.borderBottom = isAtiva ? '2px solid var(--accent)' : '2px solid transparent';
+    b.style.color = isAtiva ? 'var(--accent)' : '#666';
+    b.style.background = isAtiva ? 'rgba(200,217,74,0.06)' : 'transparent';
   });
 
   const conteudo = document.getElementById('aba-conteudo');
@@ -224,6 +313,11 @@ async function trocarAba(aba) {
 async function renderAba(aba) {
   const conteudo = document.getElementById('aba-conteudo');
   const configs = kpiConfigsGlobal.filter(c => c.aba === aba);
+
+  if (configs.some(c => c.tipo_grafico === 'matriz')) {
+    await renderMatriz(configs);
+    return;
+  }
 
   const linhasMap = {};
   configs.forEach(c => {
@@ -277,7 +371,7 @@ async function renderAba(aba) {
       itens.forEach(config => {
         const tituloEl = document.createElement('div');
         tituloEl.id = config.elemento_id;
-        tituloEl.style.cssText = 'font-size:10px; color:#666; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:8px; margin-top:12px;';
+        tituloEl.style.cssText = 'font-size:10px; color:#666; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:8px; margin-top:12px; padding-left:8px; border-left:2px solid var(--accent);';
         tituloEl.textContent = config.titulo;
         conteudo.appendChild(tituloEl);
       });
@@ -299,7 +393,7 @@ async function renderAba(aba) {
         : 'background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px;';
       card.innerHTML = config.tipo_grafico === 'metric_card'
         ? `<div id="${config.elemento_id}"></div>`
-        : `<div style="font-size:12px; font-weight:700; margin-bottom:16px;">${config.titulo}</div><div id="${config.elemento_id}"></div>`;
+        : `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div id="${config.elemento_id}"></div>`;
       linhaEl.appendChild(card);
     });
 
@@ -307,200 +401,130 @@ async function renderAba(aba) {
   }
 }
 
-const funcoes = {
+async function renderMatriz(configs) {
+  const conteudo = document.getElementById('aba-conteudo');
+  conteudo.innerHTML = '';
 
-  soma_por_grupo: (eventos, campoGrupo, campoValor, campoFiltro) => {
-    const filtrados = campoFiltro
-      ? eventos.filter(r => {
-          const [campo, valor] = campoFiltro.split(':');
-          return r.dados?.[campo] === valor;
-        })
-      : eventos;
-    const map = {};
-    filtrados.forEach(r => {
-      const grupo = r.dados?.[campoGrupo] || '—';
-      const val = parseFloat(r.dados?.[campoValor]?.toString().replace(',', '.') || 0);
-      map[grupo] = (map[grupo] || 0) + (isNaN(val) ? 0 : val);
-    });
-    const categorias = Object.keys(map).sort((a, b) => map[b] - map[a]);
-    return { categorias, valores: categorias.map(k => map[k]) };
-  },
+  const matrizId = configs.find(c => c.tipo_grafico === 'matriz')?.elemento_id;
+  const itensMatriz = await buscarMatriz(matrizId);
+  if (itensMatriz.length === 0) {
+    conteudo.innerHTML = '<div style="color:var(--muted); font-size:12px; padding:20px 0;">nenhum KPI configurado para esta matriz.</div>';
+    return;
+  }
 
-  soma: (eventos, campoGrupo, campoValor, campoFiltro) => {
-    const filtrados = campoFiltro
-      ? eventos.filter(r => {
-          const [campo, valor] = campoFiltro.split(':');
-          return r.dados?.[campo] === valor;
-        })
-      : eventos;
-    const total = filtrados.reduce((acc, r) => {
-      const val = parseFloat(r.dados?.[campoValor]?.toString().replace(',', '.') || 0);
-      return acc + (isNaN(val) ? 0 : val);
-    }, 0);
-    return { valor: 'R$ ' + total.toLocaleString('pt-BR', { minimumFractionDigits: 2 }), sub: 'total no período' };
-  },
+  const eventos = [...new Set(itensMatriz.map(i => i.evento))];
+  const eventosCache = {};
+  for (const evento of eventos) {
+    const todos = await buscarEventos(evento);
+    eventosCache[evento] = todos;
+  }
 
-  taxa_bio: (eventos) => {
-    const total = eventos.length;
-    const bio = eventos.filter(r => r.dados?.tipo === 'bio').length;
-    const taxa = total > 0 ? Math.round(bio / total * 100) : 0;
-    return { valor: taxa + '%', sub: 'do total de ocorrências' };
-  },
+  const diasSet = new Set();
+  Object.values(eventosCache).flat().forEach(r => {
+    const dia = new Date(r.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    diasSet.add(dia);
+  });
+  const dias = [...diasSet].sort((a, b) => {
+    const [da, ma] = a.split('/');
+    const [db, mb] = b.split('/');
+    return new Date(`2025-${ma}-${da}`) - new Date(`2025-${mb}-${db}`);
+  });
 
-  resolucao_rapida: (eventos) => {
-    const tempos = eventos
-      .filter(r => r.dados?.hora_relato)
-      .map(r => {
-        const registrado = new Date(r.timestamp);
-        const [h, m] = r.dados.hora_relato.split(':');
-        const relatado = new Date(registrado);
-        relatado.setUTCHours(Number(h), Number(m), 0, 0);
-        return (registrado - relatado) / 60000;
-      })
-      .filter(t => t > 0);
-    const rapidas = tempos.filter(t => t <= 60).length;
-    const taxa = tempos.length > 0 ? Math.round(rapidas / tempos.length * 100) : 0;
-    return { valor: taxa + '%', sub: 'resolvidas em menos de 60min' };
-  },
+  const grupos = [...new Set(itensMatriz.map(i => i.grupo).filter(Boolean))];
 
-  reincidencia: (eventos) => {
-    const relatoresUnicos = new Set(eventos.map(r => r.dados?.relatado_por).filter(Boolean));
-    const recorrentes = [...relatoresUnicos].filter(p =>
-      eventos.filter(r => r.dados?.relatado_por === p).length > 1
-    ).length;
-    const taxa = relatoresUnicos.size > 0 ? Math.round(recorrentes / relatoresUnicos.size * 100) : 0;
-    return { valor: taxa + '%', sub: 'relatores com mais de 1 ocorrência' };
-  },
 
-  tendencia: async (eventos) => {
-    const agora = Date.now();
-    const inicio = new Date(agora - 14 * 24 * 60 * 60 * 1000).toISOString();
-    const { data } = await sb
-      .from('events')
-      .select('*')
-      .eq('evento', 'relato_de_ocorrencia')
-      .eq('tenant_id', getTenantAtivo())
-      .gte('timestamp', inicio)
-      .order('timestamp', { ascending: true });
+  const wrap = document.createElement('div');
+  wrap.className = 'matriz-wrap';
 
-    const cliente = filtrosAtivos['cliente'] || '';
-    const todos = (data || []).filter(r => !cliente || r.dados?.cliente_id === cliente);
+  const table = document.createElement('table');
+  table.className = 'matriz-table';
 
-    const semanaAtual = todos.filter(r =>
-      new Date(r.timestamp) >= new Date(agora - 7 * 24 * 60 * 60 * 1000)
-    ).length;
-    const semanaAnterior = todos.filter(r => {
-      const t = new Date(r.timestamp);
-      return t >= new Date(agora - 14 * 24 * 60 * 60 * 1000) && t < new Date(agora - 7 * 24 * 60 * 60 * 1000);
-    }).length;
+  const thead = document.createElement('thead');
+  thead.innerHTML = `
+    <tr>
+      <th class="col-label" style="width:180px">indicador</th>
+      <th>acum.</th>
+      ${dias.map(d => `<th>${d}</th>`).join('')}
+    </tr>
+  `;
+  table.appendChild(thead);
 
-    const val = semanaAnterior > 0
-      ? Math.round((semanaAtual - semanaAnterior) / semanaAnterior * 100)
-      : null;
-    return { valor: val !== null ? (val > 0 ? '+' : '') + val + '%' : '—', sub: 'vs semana anterior' };
-  },
+  const tbody = document.createElement('tbody');
 
-  contar: (eventos, campoGrupo, campoValor, campoFiltro) => {
-    const filtrados = campoFiltro
-      ? eventos.filter(r => {
-          const [campo, valor] = campoFiltro.split(':');
-          return r.dados?.[campo] === valor;
-        })
-      : eventos;
-    const map = {};
-    filtrados.forEach(r => {
-      const val = r.dados?.[campoGrupo] || r[campoGrupo] || '—';
-      map[val] = (map[val] || 0) + 1;
-    });
-    const categorias = Object.keys(map).sort((a, b) => map[b] - map[a]);
-    return { categorias, valores: categorias.map(k => map[k]) };
-  },
+  const cache = {};
+  const itensOrdenados = ordenarPorDependencia(itensMatriz);
 
-  contar_por_data: (eventos, campoGrupo) => {
-    const diasMap = {};
-    const tipos = [...new Set(eventos.map(r => r.dados?.[campoGrupo]).filter(Boolean))];
-    eventos.forEach(r => {
-      const dia = new Date(r.timestamp).toLocaleDateString('pt-BR');
-      const val = r.dados?.[campoGrupo] || '—';
-      if (!diasMap[dia]) diasMap[dia] = {};
-      diasMap[dia][val] = (diasMap[dia][val] || 0) + 1;
-    });
-    const categorias = Object.keys(diasMap).sort((a, b) => {
-      const [da, ma, ya] = a.split('/');
-      const [db, mb, yb] = b.split('/');
-      return new Date(`${ya}-${ma}-${da}`) - new Date(`${yb}-${mb}-${db}`);
-    });
-    const series = tipos.map(tipo => ({
-      name: tipo,
-      data: categorias.map(d => diasMap[d][tipo] || 0)
-    }));
-    return { categorias, series };
-  },
+  const cachePorDia = {};
+  for (const dia of dias) {
+    cachePorDia[dia] = {};
+  }
 
-  contar_empilhado: (eventos, campoGrupo, campoValor) => {
-    const tipos = [...new Set(eventos.map(r => r.dados?.[campoValor]).filter(Boolean))];
-    const pessoaMap = {};
-    eventos.forEach(r => {
-      const pessoa = r.dados?.[campoGrupo] || '—';
-      const tipo = r.dados?.[campoValor] || '—';
-      if (!pessoaMap[pessoa]) pessoaMap[pessoa] = {};
-      pessoaMap[pessoa][tipo] = (pessoaMap[pessoa][tipo] || 0) + 1;
-    });
-    const categorias = Object.keys(pessoaMap).sort((a, b) => {
-      const totalA = Object.values(pessoaMap[a]).reduce((s, v) => s + v, 0);
-      const totalB = Object.values(pessoaMap[b]).reduce((s, v) => s + v, 0);
-      return totalB - totalA;
-    });
-    const series = tipos.map(tipo => ({
-      name: tipo,
-      data: categorias.map(p => pessoaMap[p][tipo] || 0)
-    }));
-    return { categorias, series };
-  },
+  for (const grupo of grupos) {
+    const secRow = document.createElement('tr');
+    secRow.className = 'section-row';
+    secRow.innerHTML = `<td colspan="${dias.length + 2}">${grupo}</td>`;
+    tbody.appendChild(secRow);
 
-  media_tempo: (eventos, campoGrupo) => {
-    const tempos = {};
-    const contagens = {};
-    eventos.filter(r => r.dados?.hora_relato).forEach(r => {
-      const registrado = new Date(r.timestamp);
-      const [h, m] = r.dados.hora_relato.split(':');
-      const relatado = new Date(registrado);
-      relatado.setUTCHours(Number(h), Number(m), 0, 0);
-      const diff = (registrado - relatado) / 60000;
-      if (diff <= 0) return;
-      const grupo = r[campoGrupo]?.split('@')[0] || r.dados?.[campoGrupo] || '—';
-      tempos[grupo] = (tempos[grupo] || 0) + diff;
-      contagens[grupo] = (contagens[grupo] || 0) + 1;
-    });
-    const categorias = Object.keys(tempos);
-    const valores = categorias.map(g => Math.round(tempos[g] / contagens[g]));
-    const media = valores.length > 0 ? Math.round(valores.reduce((a, b) => a + b, 0) / valores.length) : null;
-    return { categorias, valores, media };
-  },
+    const itensGrupo = itensOrdenados.filter(i => i.grupo === grupo);
 
-  contar_total: (eventos) => {
-    const periodo = filtrosAtivos['periodo'] || 30;
-    return { valor: eventos.length, sub: `últimos ${periodo} dia(s)` };
-  },
+    for (const item of itensGrupo) {
+      const def = item;
+      const eventosItem = eventosCache[def.evento] || [];
+      const fn = funcoes[def.funcao];
+      if (!fn && !item.formula) continue;
 
-  media_tempo_geral: (eventos) => {
-    const tempos = eventos
-      .filter(r => r.dados?.hora_relato)
-      .map(r => {
-        const registrado = new Date(r.timestamp);
-        const [h, m] = r.dados.hora_relato.split(':');
-        const relatado = new Date(registrado);
-        relatado.setUTCHours(Number(h), Number(m), 0, 0);
-        return (registrado - relatado) / 60000;
-      })
-      .filter(t => t > 0);
-    const media = tempos.length > 0
-      ? Math.round(tempos.reduce((a, b) => a + b, 0) / tempos.length)
-      : null;
-    return { valor: media ? media + ' min' : '—', sub: 'desde relato até registro' };
-  },
+      const dadosAcum = item.formula
+        ? { valor: resolverFormula(item.formula, cache) }
+        : await fn(eventosItem, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
+      const valorAcumRaw = typeof dadosAcum.valor === 'string'
+        ? parseFloat(dadosAcum.valor.replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.'))
+        : dadosAcum.valor;
+      const valorAcum = !isFinite(valorAcumRaw) ? null : valorAcumRaw;
+      cache[item.id] = valorAcum;
 
-  nenhuma: () => ({ valor: null, sub: null }),
-};
+      const dadosPorDia = {};
+
+      for (const dia of dias) {
+        const [d, m] = dia.split('/');
+        const eventosDia = eventosItem.filter(r => {
+          const rd = new Date(r.timestamp);
+          return rd.getDate() === parseInt(d) && (rd.getMonth() + 1) === parseInt(m);
+        });
+        const dadosDia = item.formula
+          ? { valor: resolverFormula(item.formula, cachePorDia[dia]) }
+          : await fn(eventosDia, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
+        const valDia = typeof dadosDia.valor === 'string'
+          ? parseFloat(dadosDia.valor.replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.'))
+          : dadosDia.valor;
+        dadosPorDia[dia] = !isFinite(valDia) ? null : valDia;
+        cachePorDia[dia][item.id] = dadosPorDia[dia];
+        console.log(dia, dadosPorDia[dia], typeof dadosPorDia[dia]);
+      }
+
+      if (item.oculto) { continue; }
+      const corAcum = getCorMatriz(valorAcum, item.meta_tipo, item.limite_verde, item.limite_laranja);
+
+      const tr = document.createElement('tr');
+      let html = `
+        <td><div class="kpi-label">${def.titulo}<span class="kpi-sub">${def.descricao || ''}</span></div></td>
+        <td class="cell" style="font-weight:700; font-size:11px; color:${corAcum === 'verde' ? '#7ec87e' : corAcum === 'laranja' ? '#d4900a' : corAcum === 'vermelho' ? '#e8637a' : 'var(--muted)'};">${formatarCelulaMatriz(valorAcum, def.formato)}</td>
+      `;
+
+      for (const dia of dias) {
+        const val = dadosPorDia[dia];
+        const cor = getCorMatriz(val, item.meta_tipo, item.limite_verde, item.limite_laranja);
+        const valFormatado = formatarCelulaMatriz(val, def.formato);
+        html += `<td class="cell"><span class="matriz-pill ${cor}">${valFormatado}</span></td>`;
+      }
+
+      tr.innerHTML = html;
+      tbody.appendChild(tr);
+    }
+  }
+
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  conteudo.appendChild(wrap);
+}
 
 renderDashboard();

@@ -16,7 +16,12 @@
         <img src="https://i.ibb.co/tMpRCVB9/Ativo-9-Elemento2.png" style="height:28px;">
         <h1>Pulse - KPIs</h1>
       </div>
-    <a href="index.html" style="font-size:11px; color:#666; text-decoration:none;">← voltar</a>
+    <div style="display:flex; align-items:center; gap:16px;">
+      <a href="index.html" style="font-size:11px; color:#666; text-decoration:none;">← voltar</a>
+      <span style="width:1px; height:16px; background:rgba(255,255,255,0.1); display:inline-block;"></span>
+      <button onclick="trocarWorkspace()" style="font-size:11px; padding:6px 12px; border-radius:6px; border:none; background:transparent; color:#666; cursor:pointer;">trocar workspace</button>
+      <button onclick="doLogout()" style="font-size:11px; padding:6px 12px; border-radius:6px; border:none; background:transparent; color:#e8637a; cursor:pointer; opacity:0.7;">sair</button>
+    </div>
   </div>
 
   <div id="dashboard"></div>
@@ -28,6 +33,7 @@
   <script src="js/components/barHorizontal.js"></script>
   <script src="js/components/barStacked.js"></script>
   <script src="js/components/donut.js"></script>
+  <script src="js/funcoes/base.js"></script>
   <script src="js/kpis2.js"></script>
 </body>
 </html>

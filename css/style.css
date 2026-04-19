@@ -1,7 +1,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #0a0c14;
+  --bg: #0f121e;
   --surface: #111827;
   --surface2: #1a2235;
   --border: rgba(255,255,255,0.08);
@@ -58,8 +58,8 @@ h1 { font-size: 18px; font-weight: 700; }
 }
 
 .period-btn.active {
-  background: var(--accent-dim);
-  border-color: rgba(0,229,160,0.3);
+  background: rgba(200,217,74,0.15);
+  border-color: transparent;
   color: var(--accent);
 }
 
@@ -134,3 +134,17 @@ td {
   align-items: center;
   margin-bottom: 28px;
 }
+
+.matriz-wrap { overflow-x: auto; }
+.matriz-table { width: 100%; border-collapse: collapse; min-width: 600px; }
+.matriz-table th { font-size: 9px; color: var(--muted); font-weight: 400; padding: 6px 4px; text-align: center; border-bottom: 1px solid var(--border); }
+.matriz-table th.col-label { text-align: left; padding-left: 12px; font-size: 10px; }
+.matriz-table .section-row td { font-size: 9px; font-weight: 700; color: var(--accent); padding: 10px 0 4px 12px; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1px solid var(--accent-dim); }
+.matriz-table .kpi-label { font-size: 11px; color: var(--text); padding: 5px 0; white-space: nowrap; }
+.matriz-table .kpi-sub { font-size: 9px; color: var(--muted); display: block; margin-top: 1px; }
+.matriz-table .cell { text-align: center; padding: 2px; }
+.matriz-pill { font-size: 9px; padding: 4px 2px; border-radius: 4px; display: block; text-align: center; font-weight: 500; }
+.matriz-pill.verde { background: rgba(100,200,100,0.12); color: #7ec87e; }
+.matriz-pill.laranja { background: rgba(212,144,10,0.12); color: #d4900a; }
+.matriz-pill.vermelho { background: rgba(232,99,122,0.12); color: #e8637a; }
+.matriz-pill.neutro { background: var(--surface2); color: var(--muted2); }

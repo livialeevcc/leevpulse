@@ -8,6 +8,7 @@ function renderBarStacked({ elementId, categorias, series, horizontal = true, he
     return;
   }
 
+  const coresAjustadas = series.map((_, i) => paletaCores[i % paletaCores.length]);
   const chart = new ApexCharts(el, {
     chart: {
       type: 'bar',
@@ -22,7 +23,7 @@ function renderBarStacked({ elementId, categorias, series, horizontal = true, he
     dataLabels: { enabled: false },
     series,
     xaxis: { categories: categorias },
-    colors: ['#ff4d4d', '#ffaa00', '#6b8cff', '#c084fc'],
+    colors: coresAjustadas,
     grid: { borderColor: 'rgba(255,255,255,0.06)' },
     legend: { position: 'bottom', offsetY: 0 },
     tooltip: { theme: 'dark' }

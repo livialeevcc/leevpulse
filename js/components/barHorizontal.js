@@ -39,7 +39,7 @@ function renderBarHorizontal({ elementId, categorias, valores, label, media, hei
     dataLabels: { enabled: false },
     series: [{ name: label, data: valores }],
     xaxis: { categories: categorias },
-    colors: ['#00e5a0'],
+    colors: [paletaCores[0]],
     grid: { borderColor: 'rgba(255,255,255,0.06)' },
     yaxis: { labels: { offsetX: 0 } },
     annotations,

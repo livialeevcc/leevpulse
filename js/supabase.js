@@ -27,4 +27,16 @@ function inicializarTenant() {
   if (salvo) tenantAtivo = salvo;
 }
 
+function trocarWorkspace() {
+  sessionStorage.removeItem('tenant_ativo');
+  tenantAtivo = null;
+  window.location.href = 'index.html';
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  sessionStorage.removeItem('tenant_ativo');
+  window.location.href = 'index.html';
+}
+
 inicializarTenant();
