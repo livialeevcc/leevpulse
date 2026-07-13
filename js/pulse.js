@@ -377,29 +377,30 @@ async function switchTab(evento, label, btnEl, action) {
   document.getElementById('thead').innerHTML = '';
   document.getElementById('tbody').innerHTML = '';
 
-  const schema = await loadSchema(evento);
+  const [schema, { data }] = await Promise.all([
+  loadSchema(evento),
+  sb.from('events')
+    .select('*')
+    .eq('evento', evento)
+    .eq('tenant_id', getTenantAtivo())
+    .order('timestamp', { ascending: false })
+]);
+
   schema.forEach(c => { labelMap[c.campo] = c.label; });
   injetarEstilosTipos(schema);
 
   camposVisiveis = schema
-    .filter(c => c.visivel === true)
-    .map(c => c.campo);
+      .filter(c => c.visivel === true)
+      .map(c => c.campo);
 
   const thead = document.getElementById('thead');
   const tr = document.createElement('tr');
   camposVisiveis.forEach(c => {
-    const th = document.createElement('th');
-    th.textContent = labelMap[c] || c;
-    tr.appendChild(th);
+      const th = document.createElement('th');
+      th.textContent = labelMap[c] || c;
+      tr.appendChild(th);
   });
   thead.appendChild(tr);
-
-  const { data } = await sb
-    .from('events')
-    .select('*')
-    .eq('evento', evento)
-    .eq('tenant_id', getTenantAtivo())
-    .order('timestamp', { ascending: false });
 
   data?.forEach(r => addRow(r));
 }

@@ -1,6 +1,39 @@
 let filtrosAtivos = {};
 let kpiConfigsGlobal = [];
 let abaAtiva = null;
+let eventosGlobalCache = {};
+let progressoTimer = null;
+
+function iniciarProgressoLento() {
+  let container = document.getElementById('loading-bar-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'loading-bar-container';
+    container.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:9999;';
+    container.innerHTML = '<div style="background:rgba(255,255,255,0.06); height:5px;"><div id="loading-bar" style="height:100%; width:0%; background:var(--accent); transition:width 0.5s ease;"></div></div>';
+    document.body.prepend(container);
+  }
+  const bar = document.getElementById('loading-bar');
+  let progresso = 5;
+  bar.style.width = progresso + '%';
+  progressoTimer = setInterval(() => {
+    if (progresso < 85) {
+      progresso += Math.random() * 5 + 1;
+      if (progresso > 85) progresso = 85;
+      bar.style.width = progresso + '%';
+    }
+  }, 400);
+}
+
+function finalizarProgresso() {
+  clearInterval(progressoTimer);
+  const bar = document.getElementById('loading-bar');
+  if (bar) bar.style.width = '100%';
+  setTimeout(() => {
+    const container = document.getElementById('loading-bar-container');
+    if (container) container.remove();
+  }, 400);
+}
 
 const alturasPorTipo = {
   filtro_periodo: 0,
@@ -185,19 +218,25 @@ function getDataInicio() {
 }
 
 async function buscarEventos(evento) {
-  let query = sb
-    .from('events')
-    .select('*')
-    .eq('evento', evento)
-    .eq('tenant_id', getTenantAtivo())
-    .order('timestamp', { ascending: true });
-
   const dataInicio = getDataInicio();
-  if (dataInicio) query = query.gte('timestamp', dataInicio);
+  const cacheKey = evento + (dataInicio || '');
 
-  const { data } = await query.limit(100000);
+  if (!eventosGlobalCache[cacheKey]) {
+    let query = sb
+      .from('events')
+      .select('dados, timestamp')
+      .eq('evento', evento)
+      .eq('tenant_id', getTenantAtivo())
+      .order('timestamp', { ascending: true });
+
+    if (dataInicio) query = query.gte('timestamp', dataInicio);
+
+    const { data } = await query.limit(100000);
+    eventosGlobalCache[cacheKey] = data || [];
+  }
+
   const cliente = filtrosAtivos['cliente'] || '';
-  return (data || []).filter(r =>
+  return eventosGlobalCache[cacheKey].filter(r =>
     !cliente || r.dados?.cliente_id === cliente
   );
 }
@@ -213,6 +252,7 @@ function onFiltroChange(tipo, valor) {
 function setPeriodo(dias, btn) {
   document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  eventosGlobalCache = {};
   onFiltroChange('periodo', dias);
 }
 
@@ -222,10 +262,18 @@ async function renderGraficos(configs) {
 
   const unidade = calcularUnidade(configs[0]?.aba);
 
+  iniciarProgressoLento();
+
   const eventosCache = {};
-  for (const evento of eventoIds) {
-    eventosCache[evento] = await buscarEventos(evento);
-  }
+  await Promise.all(
+    eventoIds.map(evento =>
+      buscarEventos(evento).then(data => {
+        eventosCache[evento] = data;
+      })
+    )
+  );
+
+  finalizarProgresso();
 
   for (const config of configs) {
     if (config.tipo_grafico === 'titulo' || config.tipo_grafico === 'filtro_periodo' || config.tipo_grafico === 'filtro_cliente') continue;
@@ -238,18 +286,19 @@ async function renderGraficos(configs) {
     if (config.descricao) dados.sub = config.descricao;
     const el = document.getElementById(config.elemento_id);
     if (!el) continue;
+    el.innerHTML = '';
 
     const calcularAltura = (tipo, dados) => {
-  if (tipo === 'bar_horizontal' && dados?.categorias?.length > 8) {
-    return dados.categorias.length * 35;
-  }
-  return (alturasPorTipo[tipo] || 4) * unidade - 80;
-};
+    if (tipo === 'bar_horizontal' && dados?.categorias?.length > 8) {
+      return dados.categorias.length * 35;
+    }
+    return (alturasPorTipo[tipo] || 4) * unidade - 80;
+  };
 
     if (config.tipo_grafico === 'metric_card') {
       renderMetricCard({ elementId: config.elemento_id, label: config.titulo, value: dados.valor, sub: dados.sub, formato: config.formato });
     } else if (config.tipo_grafico === 'donut') {
-      renderDonut({ elementId: config.elemento_id, labels: dados.categorias, valores: dados.valores, height: calcularAltura(config.tipo_grafico) });
+      renderDonut({ elementId: config.elemento_id, labels: dados.categorias, valores: dados.valores, height: 500 });
     } else if (config.tipo_grafico === 'bar_horizontal') {
       renderBarHorizontal({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, media: dados.media, height: calcularAltura(config.tipo_grafico, dados) });
     } else if (config.tipo_grafico === 'bar_stacked') {
@@ -263,9 +312,13 @@ async function renderGraficos(configs) {
 let tenantAtualConfig = null;
 
 async function renderDashboard() {
-  kpiConfigsGlobal = await buscarKpiConfig();
+  const [configs, tenant] = await Promise.all([
+    buscarKpiConfig(),
+    buscarTenant()
+  ]);
+  kpiConfigsGlobal = configs;
+  tenantAtualConfig = tenant;
   resetMetricCardIndex();
-  tenantAtualConfig = await buscarTenant();
   try {
     await import(`./funcoes/${getTenantAtivo()}.js`);
   } catch(e) {}
@@ -430,14 +483,15 @@ async function renderAba(aba) {
       card.style.cssText = config.tipo_grafico === 'metric_card'
         ? ''
         : 'background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; overflow:visible;';
+      const loading = '<span style="color:#444; font-size:11px;">carregando...</span>';
       if (config.tipo_grafico === 'metric_card') {
-        card.innerHTML = `<div id="${config.elemento_id}"></div>`;
+        card.innerHTML = `<div id="${config.elemento_id}">${loading}</div>`;
       } else if (config.tipo_grafico === 'bar_stacked') {
-        card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div style="max-height:400px; overflow-y:auto;"><div id="${config.elemento_id}"></div></div><div id="${config.elemento_id}-legenda" style="padding-top:8px; border-top:1px solid rgba(255,255,255,0.06); text-align:center;"></div>`;
+        card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div style="max-height:400px; overflow-y:auto;"><div id="${config.elemento_id}">${loading}</div></div><div id="${config.elemento_id}-legenda" style="padding-top:8px; border-top:1px solid rgba(255,255,255,0.06); text-align:center;"></div>`;
       } else if (config.tipo_grafico === 'bar_horizontal') {
-        card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div style="max-height:400px; overflow-y:auto;"><div id="${config.elemento_id}"></div></div>`;
+        card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div style="max-height:400px; overflow-y:auto;"><div id="${config.elemento_id}">${loading}</div></div>`;
       } else {
-        card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div id="${config.elemento_id}"></div>`;
+        card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div id="${config.elemento_id}">${loading}</div>`;
       }
       linhaEl.appendChild(card);
     });
