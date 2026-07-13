@@ -1,4 +1,6 @@
 function renderDonut({ elementId, labels, valores, height = 350 }) {
+  const alturaMinima = labels.length > 6 ? 250 + labels.length * 20 : height;
+  const alturaFinal = Math.max(height, alturaMinima);
   const el = document.getElementById(elementId);
   if (!el) return;
 
@@ -13,7 +15,7 @@ function renderDonut({ elementId, labels, valores, height = 350 }) {
   const chart = new ApexCharts(el, {
     chart: {
       type: 'donut',
-      height: height,
+      height: alturaFinal,
       background: 'transparent',
     },
     stroke: { width: 0 },

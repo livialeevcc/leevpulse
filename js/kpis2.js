@@ -195,7 +195,7 @@ async function buscarEventos(evento) {
   const dataInicio = getDataInicio();
   if (dataInicio) query = query.gte('timestamp', dataInicio);
 
-  const { data } = await query;
+  const { data } = await query.limit(100000);
   const cliente = filtrosAtivos['cliente'] || '';
   return (data || []).filter(r =>
     !cliente || r.dados?.cliente_id === cliente
@@ -239,14 +239,19 @@ async function renderGraficos(configs) {
     const el = document.getElementById(config.elemento_id);
     if (!el) continue;
 
-    const calcularAltura = (tipo) => (alturasPorTipo[tipo] || 4) * unidade - 80;
+    const calcularAltura = (tipo, dados) => {
+  if (tipo === 'bar_horizontal' && dados?.categorias?.length > 8) {
+    return dados.categorias.length * 35;
+  }
+  return (alturasPorTipo[tipo] || 4) * unidade - 80;
+};
 
     if (config.tipo_grafico === 'metric_card') {
       renderMetricCard({ elementId: config.elemento_id, label: config.titulo, value: dados.valor, sub: dados.sub, formato: config.formato });
     } else if (config.tipo_grafico === 'donut') {
       renderDonut({ elementId: config.elemento_id, labels: dados.categorias, valores: dados.valores, height: calcularAltura(config.tipo_grafico) });
     } else if (config.tipo_grafico === 'bar_horizontal') {
-      renderBarHorizontal({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, media: dados.media, height: calcularAltura(config.tipo_grafico) });
+      renderBarHorizontal({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, media: dados.media, height: calcularAltura(config.tipo_grafico, dados) });
     } else if (config.tipo_grafico === 'bar_stacked') {
       renderBarStacked({ elementId: config.elemento_id, categorias: dados.categorias, series: dados.series, height: calcularAltura(config.tipo_grafico) });
     } else if (config.tipo_grafico === 'bar_vertical') {
@@ -418,16 +423,22 @@ async function renderAba(aba) {
 
     const colunas = itens.length > 1 ? `repeat(${itens.length}, 1fr)` : '1fr';
     const linhaEl = document.createElement('div');
-    linhaEl.style.cssText = `display:grid; grid-template-columns:${colunas}; gap:8px; margin-bottom:8px; height:${alturaPx}px;`;
+    linhaEl.style.cssText = `display:grid; grid-template-columns:${colunas}; gap:8px; margin-bottom:8px; min-height:${alturaPx}px;`;
 
     itens.forEach(config => {
       const card = document.createElement('div');
       card.style.cssText = config.tipo_grafico === 'metric_card'
         ? ''
-        : 'background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px;';
-      card.innerHTML = config.tipo_grafico === 'metric_card'
-        ? `<div id="${config.elemento_id}"></div>`
-        : `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div id="${config.elemento_id}"></div>`;
+        : 'background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; overflow:visible;';
+      if (config.tipo_grafico === 'metric_card') {
+        card.innerHTML = `<div id="${config.elemento_id}"></div>`;
+      } else if (config.tipo_grafico === 'bar_stacked') {
+        card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div style="max-height:400px; overflow-y:auto;"><div id="${config.elemento_id}"></div></div><div id="${config.elemento_id}-legenda" style="padding-top:8px; border-top:1px solid rgba(255,255,255,0.06); text-align:center;"></div>`;
+      } else if (config.tipo_grafico === 'bar_horizontal') {
+        card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div style="max-height:400px; overflow-y:auto;"><div id="${config.elemento_id}"></div></div>`;
+      } else {
+        card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div id="${config.elemento_id}"></div>`;
+      }
       linhaEl.appendChild(card);
     });
 
@@ -481,7 +492,7 @@ const mesesSet = new Set();
   const zonaFiltros = document.getElementById('zona-controles');
   zonaFiltros.innerHTML = '';
   const wrapMeses = document.createElement('div');
-  wrapMeses.style.cssText = 'display:flex; gap:8px; margin-left:auto;';
+  wrapMeses.style.cssText = 'display:flex; gap:8px;';
   meses.forEach(mes => {
     const [ano, m] = mes.split('-');
     const label = new Date(ano, m - 1).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
@@ -539,9 +550,13 @@ const mesesSet = new Set();
       const fn = funcoes[def.funcao];
       if (!fn && !item.formula) continue;
 
+      const eventosItemMes = eventosItem.filter(r => {
+        const rd = new Date(r.timestamp);
+        return rd.getFullYear() === parseInt(anoSel) && (rd.getMonth() + 1) === parseInt(mesSel);
+      });
       const dadosAcum = item.formula
         ? { valor: resolverFormula(item.formula, cache) }
-        : await fn(eventosItem, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
+        : await fn(eventosItemMes, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
       const valorAcumRaw = typeof dadosAcum.valor === 'string'
         ? parseFloat(dadosAcum.valor.replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.'))
         : dadosAcum.valor;

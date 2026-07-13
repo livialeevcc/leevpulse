@@ -8,7 +8,11 @@ const funcoes = {
   aplicarFiltro: (eventos, campoFiltro) => {
     if (!campoFiltro || campoFiltro.length === 0) return eventos;
     return eventos.filter(r =>
-      campoFiltro.every(([campo, valor]) => r.dados?.[campo] === valor)
+      campoFiltro.every(([campo, valor]) =>
+        Array.isArray(valor)
+          ? valor.includes(r.dados?.[campo])
+          : r.dados?.[campo] === valor
+      )
     );
   },
 
@@ -154,6 +158,30 @@ const funcoes = {
     const series = tipos.map(tipo => ({
       name: tipo,
       data: categorias.map(p => pessoaMap[p][tipo] || 0)
+    }));
+    return { categorias, series };
+  },
+
+  soma_empilhado: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    const [campoSoma, campoSerie] = campoValor.split(',');
+    const seriesSet = [...new Set(filtrados.map(r => r.dados?.[campoSerie]).filter(Boolean))];
+    const grupoMap = {};
+    filtrados.forEach(r => {
+      const grupo = r.dados?.[campoGrupo] || '—';
+      const serie = r.dados?.[campoSerie] || '—';
+      const val = parseFloat(r.dados?.[campoSoma]?.toString().replace(',', '.') || 0);
+      if (!grupoMap[grupo]) grupoMap[grupo] = {};
+      grupoMap[grupo][serie] = (grupoMap[grupo][serie] || 0) + (isNaN(val) ? 0 : val);
+    });
+    const categorias = Object.keys(grupoMap).sort((a, b) => {
+      const totalA = Object.values(grupoMap[a]).reduce((s, v) => s + v, 0);
+      const totalB = Object.values(grupoMap[b]).reduce((s, v) => s + v, 0);
+      return totalB - totalA;
+    });
+    const series = seriesSet.map(serie => ({
+      name: serie,
+      data: categorias.map(g => grupoMap[g][serie] || 0)
     }));
     return { categorias, series };
   },

@@ -2,6 +2,8 @@ function renderBarStacked({ elementId, categorias, series, horizontal = true, he
   const el = document.getElementById(elementId);
   if (!el) return;
 
+  const alturaReal = horizontal ? Math.max(height, categorias.length * 28) : height;
+
   if (graficosInstancias[elementId]) {
     graficosInstancias[elementId].updateOptions({ xaxis: { categories: categorias } });
     graficosInstancias[elementId].updateSeries(series);
@@ -12,7 +14,7 @@ function renderBarStacked({ elementId, categorias, series, horizontal = true, he
   const chart = new ApexCharts(el, {
     chart: {
       type: 'bar',
-      height: height,
+      height: alturaReal,
       stacked: true,
       background: 'transparent'
     },
@@ -20,14 +22,29 @@ function renderBarStacked({ elementId, categorias, series, horizontal = true, he
     plotOptions: {
       bar: { horizontal, borderRadius: 4 }
     },
-    dataLabels: { enabled: false },
+    dataLabels: {
+      enabled: true,
+      style: {
+        colors: ['rgba(255,255,255,0.45)']
+      }
+    },
     series,
     xaxis: { categories: categorias },
     colors: coresAjustadas,
     grid: { borderColor: 'rgba(255,255,255,0.06)' },
-    legend: { position: 'bottom', offsetY: 0 },
+    legend: { show: false },
     tooltip: { theme: 'dark' }
   });
   chart.render();
   graficosInstancias[elementId] = chart;
+
+  const legendaId = elementId + '-legenda';
+  const legendaEl = document.getElementById(legendaId);
+  if (legendaEl) {
+    legendaEl.innerHTML = series.map((s, i) => 
+      `<span style="display:inline-flex; align-items:center; gap:4px; margin-right:12px; font-size:11px; color:#ccc;">` +
+      `<span style="width:10px; height:10px; border-radius:2px; background:${paletaCores[i % paletaCores.length]};"></span>` +
+      `${s.name}</span>`
+    ).join('');
+  }
 }
