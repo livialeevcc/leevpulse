@@ -2,7 +2,158 @@ let filtrosAtivos = {};
 let kpiConfigsGlobal = [];
 let abaAtiva = null;
 let eventosGlobalCache = {};
+let screenAtiva = null;
+let screenContexto = {};
+let screenHistorico = [];
 let progressoTimer = null;
+
+async function abrirScreen(screenId, campo, valor) {
+  if (screenAtiva) {
+    screenHistorico.push({ screen: screenAtiva, contexto: { ...screenContexto } });
+  }
+  screenAtiva = screenId;
+  screenContexto = { campo, valor };
+  sessionStorage.setItem('pulse_screen', JSON.stringify({ screen: screenId, campo, valor, historico: screenHistorico }));
+
+  const overlay = document.getElementById('screen-overlay');
+  overlay.style.display = 'block';
+  overlay.innerHTML = '';
+
+  Object.keys(graficosInstancias).forEach(id => {
+    if (id.startsWith('screen-') || id.startsWith('local-')) {
+      try { graficosInstancias[id].destroy(); } catch(e) {}
+      delete graficosInstancias[id];
+    }
+  });
+
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex; align-items:center; gap:12px; margin-bottom:16px;';
+
+  const btnVoltar = document.createElement('button');
+  btnVoltar.textContent = '← voltar';
+  btnVoltar.style.cssText = 'font-size:11px; padding:8px 16px; background:transparent; border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:var(--accent); cursor:pointer;';
+  btnVoltar.onclick = voltarDeScreen;
+  header.appendChild(btnVoltar);
+
+  const titulo = document.createElement('span');
+  titulo.textContent = valor;
+  titulo.style.cssText = 'font-size:16px; font-weight:700; color:#eee;';
+  header.appendChild(titulo);
+
+  overlay.appendChild(header);
+
+  const configs = kpiConfigsGlobal.filter(c => c.aba === screenId);
+  const subAbas = [...new Set(configs.map(c => c.sub_aba).filter(Boolean))];
+
+  if (subAbas.length > 0) {
+    const tabsEl = document.createElement('div');
+    tabsEl.id = 'screen-tabs';
+    tabsEl.style.cssText = 'display:flex; gap:4px; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.06);';
+    subAbas.forEach((sub, i) => {
+      const btn = document.createElement('button');
+      btn.textContent = sub;
+      btn.className = 'tab-btn';
+      btn.style.cssText = `font-size:11px; padding:8px 16px; background:${i === 0 ? 'rgba(200,217,74,0.06)' : 'transparent'}; border:none; border-bottom:2px solid ${i === 0 ? 'var(--accent)' : 'transparent'}; color:${i === 0 ? 'var(--accent)' : '#666'}; cursor:pointer; border-radius:6px 6px 0 0;`;
+      btn.onclick = () => trocarSubAba(sub);
+      tabsEl.appendChild(btn);
+    });
+    overlay.appendChild(tabsEl);
+  }
+
+  const conteudo = document.createElement('div');
+  conteudo.id = 'screen-conteudo';
+  overlay.appendChild(conteudo);
+
+  const primeiraSubAba = subAbas.length > 0 ? subAbas[0] : null;
+  await renderScreen(screenId, primeiraSubAba);
+}
+
+function voltarDeScreen() {
+  Object.keys(graficosInstancias).forEach(id => {
+    if (id.startsWith('screen-') || id.startsWith('local-')) {
+      try { graficosInstancias[id].destroy(); } catch(e) {}
+      delete graficosInstancias[id];
+    }
+  });
+
+  if (screenHistorico.length > 0) {
+    const anterior = screenHistorico.pop();
+    screenAtiva = null;
+    screenContexto = {};
+    abrirScreen(anterior.screen, anterior.contexto.campo, anterior.contexto.valor);
+  } else {
+    screenAtiva = null;
+    screenContexto = {};
+    sessionStorage.removeItem('pulse_screen');
+    const overlay = document.getElementById('screen-overlay');
+    overlay.style.display = 'none';
+    overlay.innerHTML = '';
+  }
+}
+
+async function trocarSubAba(sub) {
+  document.querySelectorAll('#screen-tabs .tab-btn').forEach(b => {
+    const isAtiva = b.textContent === sub;
+    b.style.borderBottom = isAtiva ? '2px solid var(--accent)' : '2px solid transparent';
+    b.style.color = isAtiva ? 'var(--accent)' : '#666';
+    b.style.background = isAtiva ? 'rgba(200,217,74,0.06)' : 'transparent';
+  });
+
+  Object.keys(graficosInstancias).forEach(id => {
+    if (id.startsWith('screen-')) {
+      try { graficosInstancias[id].destroy(); } catch(e) {}
+      delete graficosInstancias[id];
+    }
+  });
+
+  await renderScreen(screenAtiva, sub);
+}
+
+async function renderScreen(screenId, subAba) {
+  const conteudo = document.getElementById('screen-conteudo');
+  conteudo.innerHTML = '';
+
+  let configs = kpiConfigsGlobal.filter(c => c.aba === screenId);
+  if (subAba) configs = configs.filter(c => c.sub_aba === subAba);
+
+  const linhasMap = {};
+  configs.forEach(c => {
+    const linha = c.linha_matriz;
+    if (!linhasMap[linha]) linhasMap[linha] = [];
+    linhasMap[linha].push(c);
+  });
+
+  const linhasOrdenadas = Object.keys(linhasMap).map(Number).sort((a, b) => a - b);
+
+  for (const linha of linhasOrdenadas) {
+    const itens = linhasMap[linha].sort((a, b) => a.posicao - b.posicao);
+    const colunas = itens.length > 1 ? `repeat(${itens.length}, 1fr)` : '1fr';
+    const linhaEl = document.createElement('div');
+    linhaEl.style.cssText = `display:grid; grid-template-columns:${colunas}; gap:8px; margin-bottom:8px;`;
+
+    itens.forEach(config => {
+      const card = document.createElement('div');
+      const loading = '<span style="color:#444; font-size:11px;">carregando...</span>';
+      card.style.cssText = config.tipo_grafico === 'metric_card'
+        ? ''
+        : 'background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; overflow:visible;';
+      if (config.tipo_grafico === 'metric_card') {
+        card.innerHTML = `<div id="${config.elemento_id}">${loading}</div>`;
+      } else if (config.tipo_grafico === 'lista') {
+        card.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);"><span style="font-size:12px; font-weight:700;">${config.titulo}</span><input id="${config.elemento_id}-busca" type="text" placeholder="buscar..." style="width:180px; padding:6px 10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:#ccc; font-size:11px; font-family:Montserrat; outline:none;"></div><div style="max-height:400px; overflow-y:auto;"><div id="${config.elemento_id}">${loading}</div></div>`;
+      } else if (config.tipo_grafico === 'bar_horizontal') {
+        card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div style="max-height:400px; overflow-y:auto;"><div id="${config.elemento_id}">${loading}</div></div>`;
+      } else {
+        card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div id="${config.elemento_id}">${loading}</div>`;
+      }
+      linhaEl.appendChild(card);
+    });
+
+    conteudo.appendChild(linhaEl);
+  }
+
+  await renderGraficos(configs);
+}
 
 function iniciarProgressoLento() {
   let container = document.getElementById('loading-bar-container');
@@ -44,6 +195,8 @@ const alturasPorTipo = {
   bar_horizontal: 4,
   bar_stacked:    4,
   bar_vertical:   5,
+  lista:          4,
+  comparativo:    4,
 };
 
 function ordenarPorDependencia(itens) {
@@ -279,10 +432,38 @@ async function renderGraficos(configs) {
     if (config.tipo_grafico === 'titulo' || config.tipo_grafico === 'filtro_periodo' || config.tipo_grafico === 'filtro_cliente') continue;
 
     const eventos = eventosCache[config.evento];
+
+    if (config.tipo_grafico === 'comparativo') {
+      const el = document.getElementById(config.elemento_id);
+      if (!el) continue;
+      el.innerHTML = '';
+      let filtroFinal = config.campo_filtro;
+      if (screenAtiva && screenContexto.campo) {
+        const filtroBase = Array.isArray(filtroFinal) ? filtroFinal : (filtroFinal ? JSON.parse(filtroFinal) : []);
+        filtroFinal = [...filtroBase, [screenContexto.campo, screenContexto.valor]];
+      }
+      const [campoValorReal, campoComparacao] = (config.campo_valor || '').split(',');
+      renderComparativo({
+        elementId: config.elemento_id,
+        eventos,
+        campoGrupo: config.campo_grupo,
+        campoComparacao,
+        campoValor: campoValorReal,
+        campoFiltro: filtroFinal
+      });
+      continue;
+    }
+
     const fn = funcoes[config.funcao];
     if (!fn) continue;
 
-    const dados = await fn(eventos, config.campo_grupo, config.campo_valor, config.campo_filtro);
+    let filtroFinal = config.campo_filtro;
+    if (screenAtiva && screenContexto.campo) {
+      const filtroBase = Array.isArray(filtroFinal) ? filtroFinal : (filtroFinal ? JSON.parse(filtroFinal) : []);
+      filtroFinal = [...filtroBase, [screenContexto.campo, screenContexto.valor]];
+    }
+
+    const dados = await fn(eventos, config.campo_grupo, config.campo_valor, filtroFinal);
     if (config.descricao) dados.sub = config.descricao;
     const el = document.getElementById(config.elemento_id);
     if (!el) continue;
@@ -305,7 +486,31 @@ async function renderGraficos(configs) {
       renderBarStacked({ elementId: config.elemento_id, categorias: dados.categorias, series: dados.series, height: calcularAltura(config.tipo_grafico) });
     } else if (config.tipo_grafico === 'bar_vertical') {
       renderBarStacked({ elementId: config.elemento_id, categorias: dados.categorias, series: dados.series, horizontal: false, height: calcularAltura(config.tipo_grafico) });
-    }
+    } else if (config.tipo_grafico === 'lista') {
+      let badges = null;
+      if (config.badge_config) {
+        const bc = config.badge_config;
+        const badgeEventos = await buscarEventos(bc.evento);
+        badges = {};
+        badgeEventos.forEach(r => {
+          const chave = r.dados?.[bc.campo_match];
+          if (chave && !badges[chave]) {
+            badges[chave] = r.dados?.[bc.campo_badge];
+          }
+        });
+      }
+      renderLista({
+        elementId: config.elemento_id,
+        categorias: dados.categorias,
+        valores: dados.valores,
+        formato: config.formato,
+        badges,
+        badgeConfig: config.badge_config,
+        onClick: config.link_screen ? (nome) => {
+          abrirScreen(config.link_screen.screen, config.link_screen.campo, nome);
+        } : null
+      });
+    } 
   }
 }
 
@@ -326,7 +531,8 @@ async function renderDashboard() {
   const dashboard = document.getElementById('dashboard');
   dashboard.innerHTML = '';
 
-  const abas = [...new Set(kpiConfigsGlobal.map(c => c.aba).filter(Boolean))];
+  const screenIds = kpiConfigsGlobal.filter(c => c.tipo_aba === 'screen').map(c => c.aba);
+  const abas = [...new Set(kpiConfigsGlobal.map(c => c.aba).filter(a => a && !screenIds.includes(a)))];
   const hashAba = window.location.hash.replace('#', '');
   abaAtiva = abas.includes(hashAba) ? hashAba : abas[0];
 
@@ -354,6 +560,14 @@ async function renderDashboard() {
 await renderAba(abaAtiva);
   await renderGraficos(kpiConfigsGlobal.filter(c => c.aba === abaAtiva));
 
+  try {
+    const screenSalva = sessionStorage.getItem('pulse_screen');
+    if (screenSalva) {
+      const { screen, campo, valor, historico } = JSON.parse(screenSalva);
+      if (historico) screenHistorico = historico;
+      await abrirScreen(screen, campo, valor);
+    }
+  } catch(e) {}
 
   const configsRealtime = kpiConfigsGlobal.filter(c => temRealtime(c, tenantAtualConfig));
   
@@ -369,6 +583,7 @@ await renderAba(abaAtiva);
         }, async (payload) => {
           const tenantPayload = payload.new?.tenant_id || payload.old?.tenant_id;
           if (tenantPayload && tenantPayload !== getTenantAtivo()) return;
+          if (screenAtiva) return;
           const afetados = configsRealtime.filter(c => c.aba === abaAtiva);
           await renderGraficos(afetados);
         })
@@ -488,6 +703,8 @@ async function renderAba(aba) {
         card.innerHTML = `<div id="${config.elemento_id}">${loading}</div>`;
       } else if (config.tipo_grafico === 'bar_stacked') {
         card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div style="max-height:400px; overflow-y:auto;"><div id="${config.elemento_id}">${loading}</div></div><div id="${config.elemento_id}-legenda" style="padding-top:8px; border-top:1px solid rgba(255,255,255,0.06); text-align:center;"></div>`;
+      } else if (config.tipo_grafico === 'lista') {
+        card.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);"><span style="font-size:12px; font-weight:700;">${config.titulo}</span><input id="${config.elemento_id}-busca" type="text" placeholder="buscar..." style="width:180px; padding:6px 10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:#ccc; font-size:11px; font-family:Montserrat; outline:none;"></div><div style="max-height:400px; overflow-y:auto;"><div id="${config.elemento_id}">${loading}</div></div>`;
       } else if (config.tipo_grafico === 'bar_horizontal') {
         card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div style="max-height:400px; overflow-y:auto;"><div id="${config.elemento_id}">${loading}</div></div>`;
       } else {
@@ -504,7 +721,13 @@ async function renderMatriz(configs) {
   const conteudo = document.getElementById('aba-conteudo');
   conteudo.innerHTML = '';
 
-  const matrizId = configs.find(c => c.tipo_grafico === 'matriz')?.elemento_id;
+  const matrizConfig = configs.find(c => c.tipo_grafico === 'matriz');
+  const matrizId = matrizConfig?.elemento_id;
+
+  if (matrizConfig?.eixo && matrizConfig.eixo !== 'data') {
+    await renderMatrizCampo(configs, matrizConfig);
+    return;
+  }
   const itensMatriz = await buscarMatriz(matrizId);
   if (itensMatriz.length === 0) {
     conteudo.innerHTML = '<div style="color:var(--muted); font-size:12px; padding:20px 0;">nenhum KPI configurado para esta matriz.</div>';
@@ -667,6 +890,185 @@ const mesesSet = new Set();
     el.addEventListener('mousemove', e => mostrarTooltip(e, formula));
     el.addEventListener('mouseleave', esconderTooltip);
   });
+}
+
+let matrizCampoSelecionados = [];
+
+async function renderMatrizCampo(configs, matrizConfig) {
+  const conteudo = document.getElementById('aba-conteudo');
+  conteudo.innerHTML = '';
+
+  const matrizId = matrizConfig.elemento_id;
+  const eixo = matrizConfig.eixo;
+  const itensMatriz = await buscarMatriz(matrizId);
+
+  if (itensMatriz.length === 0) {
+    conteudo.innerHTML = '<div style="color:var(--muted); font-size:12px; padding:20px 0;">nenhum KPI configurado para esta matriz.</div>';
+    return;
+  }
+
+  const eventos = [...new Set(itensMatriz.map(i => i.evento))];
+  const eventosCache = {};
+  for (const evento of eventos) {
+    eventosCache[evento] = await buscarEventos(evento);
+  }
+
+  const todosEventos = Object.values(eventosCache).flat();
+  const opcoesEixo = [...new Set(todosEventos.map(r => r.dados?.[eixo]).filter(Boolean))].sort();
+
+  const zonaFiltros = document.getElementById('zona-controles');
+  zonaFiltros.innerHTML = '';
+
+  const seletorWrap = document.createElement('div');
+  seletorWrap.style.cssText = 'margin-bottom:12px; position:relative;';
+  seletorWrap.innerHTML = `
+    <input id="matriz-campo-busca" type="text" placeholder="adicionar ${eixo}..." style="width:300px; padding:8px 12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:#ccc; font-size:11px; font-family:Montserrat; outline:none;">
+    <div id="matriz-campo-dropdown" style="display:none; position:absolute; top:100%; left:0; width:300px; max-height:200px; overflow-y:auto; background:var(--surface2); border:1px solid rgba(255,255,255,0.1); border-radius:6px; z-index:10; margin-top:4px;"></div>
+  `;
+  zonaFiltros.appendChild(seletorWrap);
+
+  const tagsWrap = document.createElement('div');
+  tagsWrap.id = 'matriz-campo-tags';
+  tagsWrap.style.cssText = 'display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;';
+  zonaFiltros.appendChild(tagsWrap);
+
+  function renderTags() {
+    const tags = document.getElementById('matriz-campo-tags');
+    tags.innerHTML = matrizCampoSelecionados.map((val, i) => {
+      const cor = paletaCores[i % paletaCores.length];
+      return `<span class="matriz-campo-tag" data-val="${val}" style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:4px; font-size:10px; background:${cor}22; color:${cor}; cursor:pointer;" title="clique para remover">${val} ✕</span>`;
+    }).join('');
+    tags.querySelectorAll('.matriz-campo-tag').forEach(tag => {
+      tag.addEventListener('click', () => {
+        matrizCampoSelecionados = matrizCampoSelecionados.filter(v => v !== tag.dataset.val);
+        renderTags();
+        renderTabela();
+      });
+    });
+  }
+
+  const busca = document.getElementById('matriz-campo-busca');
+  const dropdown = document.getElementById('matriz-campo-dropdown');
+
+  busca.addEventListener('focus', () => atualizarDropdown(''));
+  busca.addEventListener('input', () => atualizarDropdown(busca.value));
+  document.addEventListener('click', (e) => {
+    if (!busca.contains(e.target) && !dropdown.contains(e.target)) {
+      dropdown.style.display = 'none';
+    }
+  });
+
+  function atualizarDropdown(termo) {
+    const filtro = termo.toLowerCase();
+    const disponiveis = opcoesEixo.filter(n =>
+      !matrizCampoSelecionados.includes(n) && n.toLowerCase().includes(filtro)
+    ).slice(0, 20);
+    if (disponiveis.length === 0) { dropdown.style.display = 'none'; return; }
+    dropdown.style.display = 'block';
+    dropdown.innerHTML = disponiveis.map(nome =>
+      `<div class="matriz-campo-opcao" data-val="${nome}" style="padding:8px 12px; cursor:pointer; font-size:11px; color:#ccc;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='transparent'">${nome}</div>`
+    ).join('');
+    dropdown.querySelectorAll('.matriz-campo-opcao').forEach(opcao => {
+      opcao.addEventListener('click', () => {
+        matrizCampoSelecionados.push(opcao.dataset.val);
+        busca.value = '';
+        dropdown.style.display = 'none';
+        renderTags();
+        renderTabela();
+      });
+    });
+  }
+
+  async function renderTabela() {
+    conteudo.innerHTML = '';
+
+    if (matrizCampoSelecionados.length === 0) {
+      conteudo.innerHTML = `<div style="color:#444; font-size:11px; padding:20px; text-align:center;">selecione itens acima para montar a matriz</div>`;
+      return;
+    }
+
+    const wrap = document.createElement('div');
+    wrap.className = 'matriz-wrap';
+    const table = document.createElement('table');
+    table.className = 'matriz-table';
+
+    const thead = document.createElement('thead');
+    thead.innerHTML = `<tr>
+      <th class="col-label" style="width:180px">indicador</th>
+      ${matrizCampoSelecionados.map((val, i) => {
+        const cor = paletaCores[i % paletaCores.length];
+        return `<th style="color:${cor};">${val}</th>`;
+      }).join('')}
+    </tr>`;
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    const grupos = [...new Set(itensMatriz.map(i => i.grupo).filter(Boolean))];
+    const itensOrdenados = ordenarPorDependencia(itensMatriz);
+
+    const cacheGlobal = {};
+    const cachePorValor = {};
+    matrizCampoSelecionados.forEach(val => { cachePorValor[val] = {}; });
+
+    for (const grupo of grupos) {
+      const secRow = document.createElement('tr');
+      secRow.className = 'section-row';
+      secRow.innerHTML = `<td colspan="${matrizCampoSelecionados.length + 1}">${grupo}</td>`;
+      tbody.appendChild(secRow);
+
+      const itensGrupo = itensOrdenados.filter(i => i.grupo === grupo);
+
+      for (const item of itensGrupo) {
+        const def = item;
+        const eventosItem = eventosCache[def.evento] || [];
+        const fn = funcoes[def.funcao];
+        if (!fn && !item.formula) continue;
+
+        const dadosPorValor = {};
+
+        for (const val of matrizCampoSelecionados) {
+          const eventosFiltrados = eventosItem.filter(r => r.dados?.[eixo] === val);
+          const dados = item.formula
+            ? { valor: resolverFormula(item.formula, cachePorValor[val]) }
+            : await fn(eventosFiltrados, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
+          const valRaw = typeof dados.valor === 'string'
+            ? parseFloat(dados.valor.replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.'))
+            : dados.valor;
+          dadosPorValor[val] = !isFinite(valRaw) ? null : valRaw;
+          cachePorValor[val][item.id] = dadosPorValor[val];
+        }
+
+        if (item.oculto) continue;
+
+        const tr = document.createElement('tr');
+        let html = `<td><div class="kpi-label" style="${item.formula ? 'cursor:help;' : ''}" data-formula="${item.formula ? montarTooltipFormula(item.formula, cacheGlobal) : ''}">${def.titulo}<span class="kpi-sub">${def.descricao || ''}</span></div></td>`;
+
+        for (const val of matrizCampoSelecionados) {
+          const v = dadosPorValor[val];
+          const cor = getCorMatriz(v, item.meta_tipo, item.limite_verde, item.limite_laranja);
+          const valFormatado = formatarCelulaMatriz(v, def.formato);
+          html += `<td class="cell"><span class="matriz-pill ${cor}">${valFormatado}</span></td>`;
+        }
+
+        tr.innerHTML = html;
+        tbody.appendChild(tr);
+      }
+    }
+
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    conteudo.appendChild(wrap);
+
+    tbody.querySelectorAll('[data-formula]').forEach(el => {
+      const formula = el.dataset.formula;
+      if (!formula) return;
+      el.addEventListener('mousemove', e => mostrarTooltip(e, formula));
+      el.addEventListener('mouseleave', esconderTooltip);
+    });
+  }
+
+  renderTags();
+  renderTabela();
 }
 
 renderDashboard();

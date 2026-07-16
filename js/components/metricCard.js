@@ -27,6 +27,7 @@ function renderMetricCard({ elementId, label, value, sub, formato = 'numero' }) 
   function formatar(val) {
     if (val === null || val === undefined) return '—';
     if (formato === 'moeda') return 'R$ ' + Number(val).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    if (formato === 'percentual') return val + '%';
     if (formato) return val + ' ' + formato;
     return val;
   }

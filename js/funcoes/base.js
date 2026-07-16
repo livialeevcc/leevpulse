@@ -206,9 +206,9 @@ const funcoes = {
     return { categorias, valores, media };
   },
 
-  contar_total: (eventos) => {
-    const periodo = filtrosAtivos['periodo'] || 30;
-    return { valor: eventos.length, sub: null };
+  contar_total: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    return { valor: filtrados.length, sub: null };
   },
 
   media_tempo_geral: (eventos) => {
@@ -226,6 +226,30 @@ const funcoes = {
       ? Math.round(tempos.reduce((a, b) => a + b, 0) / tempos.length)
       : null;
     return { valor: media ? media + ' min' : '—', sub: null };
+  },
+
+  percentual_total: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    let filtroTotal = Array.isArray(campoFiltro) ? campoFiltro : (campoFiltro ? JSON.parse(campoFiltro) : []);
+    if (typeof screenContexto !== 'undefined' && screenContexto.campo) {
+      filtroTotal = filtroTotal.filter(([campo]) => campo !== screenContexto.campo);
+    }
+    const todosNoContexto = funcoes.aplicarFiltro(eventos, filtroTotal);
+    const parte = filtrados.reduce((s, r) => {
+      const val = parseFloat(r.dados?.[campoValor]?.toString().replace(',', '.') || 0);
+      return s + (isNaN(val) ? 0 : val);
+    }, 0);
+    const total = todosNoContexto.reduce((s, r) => {
+      const val = parseFloat(r.dados?.[campoValor]?.toString().replace(',', '.') || 0);
+      return s + (isNaN(val) ? 0 : val);
+    }, 0);
+    return { valor: total > 0 ? funcoes.arredondar(parte / total * 100, 2) : 0, sub: null };
+  },
+
+  contar_distintos: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    const distintos = new Set(filtrados.map(r => r.dados?.[campoGrupo]).filter(Boolean));
+    return { valor: distintos.size, sub: null };
   },
 
   nenhuma: () => ({ valor: null, sub: null }),

@@ -545,7 +545,7 @@ function showLogin() {
 let loaded = false;
 
 sb.auth.onAuthStateChange((event, session) => {
-  if (event === 'SIGNED_IN' && !loaded) {
+  if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session && !loaded) {
     loaded = true;
     showApp(session.user);
   }
