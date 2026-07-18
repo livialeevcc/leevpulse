@@ -382,17 +382,28 @@ async function buscarEventos(evento) {
   const cacheKey = evento + (dataInicio || '');
 
   if (!eventosGlobalCache[cacheKey]) {
-    let query = sb
-      .from('events')
-      .select('dados, timestamp')
-      .eq('evento', evento)
-      .eq('tenant_id', getTenantAtivo())
-      .order('timestamp', { ascending: true });
+    let todos = [];
+    let from = 0;
+    const pageSize = 100000;
 
-    if (dataInicio) query = query.gte('timestamp', dataInicio);
+    while (true) {
+      let query = sb
+        .from('events')
+        .select('dados')
+        .eq('evento', evento)
+        .eq('tenant_id', getTenantAtivo())
+        .order('timestamp', { ascending: true })
+        .range(from, from + pageSize - 1);
 
-    const { data } = await query.limit(200000);
-    eventosGlobalCache[cacheKey] = data || [];
+      if (dataInicio) query = query.gte('timestamp', dataInicio);
+
+      const { data } = await query;
+      if (!data || data.length === 0) break;
+      todos.push(...data);
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    eventosGlobalCache[cacheKey] = todos;
   }
 
   let resultado = eventosGlobalCache[cacheKey];
