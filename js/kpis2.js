@@ -7,6 +7,7 @@ let screenContexto = {};
 let screenHistorico = [];
 let progressoTimer = null;
 
+
 async function abrirScreen(screenId, campo, valor) {
   if (screenAtiva) {
     screenHistorico.push({ screen: screenAtiva, contexto: { ...screenContexto } });
@@ -187,6 +188,8 @@ function finalizarProgresso() {
 }
 
 const alturasPorTipo = {
+  filtro_campo:   0,
+  filtro_mes:     0,
   filtro_periodo: 0,
   filtro_cliente: 0,
   titulo:         0,
@@ -197,6 +200,10 @@ const alturasPorTipo = {
   bar_vertical:   5,
   lista:          4,
   comparativo:    4,
+  linha:          8,
+  bar_vertical_simples: 6,
+  comparativo_mes: 4,
+  combo: 6,
 };
 
 function ordenarPorDependencia(itens) {
@@ -388,18 +395,38 @@ async function buscarEventos(evento) {
     eventosGlobalCache[cacheKey] = data || [];
   }
 
-  const cliente = filtrosAtivos['cliente'] || '';
-  return eventosGlobalCache[cacheKey].filter(r =>
-    !cliente || r.dados?.cliente_id === cliente
-  );
+  let resultado = eventosGlobalCache[cacheKey];
+  Object.entries(filtrosAtivos).forEach(([tipo, valor]) => {
+    if (tipo === 'periodo' || !valor) return;
+    if (tipo === 'cliente') {
+      resultado = resultado.filter(r => !valor || r.dados?.cliente_id === valor);
+    } else if (tipo.startsWith('_mes_')) {
+      const campoData = tipo.replace('_mes_', '');
+      if (Array.isArray(valor) && valor.length > 0) {
+        resultado = resultado.filter(r => {
+          const dataStr = r.dados?.[campoData];
+          if (!dataStr) return false;
+          const partes = dataStr.split('-');
+          if (partes.length < 2) return false;
+          const chave = `${partes[0]}-${partes[1]}`;
+          return valor.includes(chave);
+        });
+      }
+    } else {
+      if (Array.isArray(valor) && valor.length > 0) {
+        resultado = resultado.filter(r => valor.includes(r.dados?.[tipo]));
+      } else if (typeof valor === 'string' && valor) {
+        resultado = resultado.filter(r => r.dados?.[tipo] === valor);
+      }
+    }
+  });
+  return resultado;
 }
 
 function onFiltroChange(tipo, valor) {
   filtrosAtivos[tipo] = valor;
-  const afetados = kpiConfigsGlobal.filter(c =>
-    Array.isArray(c.filtros) && c.filtros.includes(tipo)
-  );
-  renderGraficos(afetados);
+  const abaConfigs = kpiConfigsGlobal.filter(c => c.aba === abaAtiva);
+  renderGraficos(abaConfigs);
 }
 
 function setPeriodo(dias, btn) {
@@ -428,15 +455,45 @@ async function renderGraficos(configs) {
 
   finalizarProgresso();
 
+  const cardCache = {};
+
   for (const config of configs) {
     if (config.tipo_grafico === 'titulo' || config.tipo_grafico === 'filtro_periodo' || config.tipo_grafico === 'filtro_cliente') continue;
+
+    if (config.tipo_grafico === 'filtro_campo') {
+      const cacheKey = config.evento + (getDataInicio() || '');
+      renderFiltroCampo({
+        elementId: config.elemento_id,
+        eventos: eventosGlobalCache[cacheKey] || [],
+        campo: config.campo_grupo,
+        titulo: config.titulo,
+        onChange: onFiltroChange
+      });
+      continue;
+    }
+
+    if (config.tipo_grafico === 'filtro_mes') {
+      const cacheKey = config.evento + (getDataInicio() || '');
+      renderFiltroMes({
+        elementId: config.elemento_id,
+        eventos: eventosGlobalCache[cacheKey] || [],
+        campo: config.campo_grupo,
+        titulo: config.titulo,
+        onChange: onFiltroChange
+      });
+      continue;
+    }
 
     const eventos = eventosCache[config.evento];
 
     if (config.tipo_grafico === 'comparativo') {
       const el = document.getElementById(config.elemento_id);
-      if (!el) continue;
-      el.innerHTML = '';
+    if (!el) continue;
+    if (graficosInstancias[config.elemento_id]) {
+      try { graficosInstancias[config.elemento_id].destroy(); } catch(e) {}
+      delete graficosInstancias[config.elemento_id];
+    }
+    el.innerHTML = '';
       let filtroFinal = config.campo_filtro;
       if (screenAtiva && screenContexto.campo) {
         const filtroBase = Array.isArray(filtroFinal) ? filtroFinal : (filtroFinal ? JSON.parse(filtroFinal) : []);
@@ -454,6 +511,55 @@ async function renderGraficos(configs) {
       continue;
     }
 
+    if (config.tipo_grafico === 'comparativo_mes') {
+      const el = document.getElementById(config.elemento_id);
+      if (!el) continue;
+      el.innerHTML = '';
+      let filtroFinal = config.campo_filtro;
+      if (screenAtiva && screenContexto.campo) {
+        const filtroBase = Array.isArray(filtroFinal) ? filtroFinal : (filtroFinal ? JSON.parse(filtroFinal) : []);
+        filtroFinal = [...filtroBase, [screenContexto.campo, screenContexto.valor]];
+      }
+      const [campoValorReal, campoData] = (config.campo_valor || '').split(',');
+      renderComparativoMes({
+        elementId: config.elemento_id,
+        eventos,
+        campoData,
+        campoValor: campoValorReal,
+        campoGrupo: config.campo_grupo,
+        campoFiltro: filtroFinal
+      });
+      continue;
+    }
+
+    if (config.tipo_grafico === 'metric_card' && config.formula) {
+      const el = document.getElementById(config.elemento_id);
+      if (!el) continue;
+      if (graficosInstancias[config.elemento_id]) {
+        try { graficosInstancias[config.elemento_id].destroy(); } catch(e) {}
+        delete graficosInstancias[config.elemento_id];
+      }
+      el.innerHTML = '';
+      const valor = resolverFormula(config.formula, cardCache);
+      cardCache[config.elemento_id] = valor;
+      renderMetricCard({ elementId: config.elemento_id, label: config.titulo, value: valor, sub: config.descricao, formato: config.formato });
+      continue;
+    }
+
+    if (config.funcao === 'percentual_cruzado_por_mes' && config.evento2) {
+      const el = document.getElementById(config.elemento_id);
+      if (!el) continue;
+      if (graficosInstancias[config.elemento_id]) {
+        try { graficosInstancias[config.elemento_id].destroy(); } catch(e) {}
+        delete graficosInstancias[config.elemento_id];
+      }
+      el.innerHTML = '';
+      const eventos2 = await buscarEventos(config.evento2);
+      const dados = funcoes.percentual_cruzado_por_mes(eventos, eventos2, config.campo_grupo, config.campo_valor, config.campo_filtro);
+      renderLinha({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, height: 300, formato: 'percentual', meta: config.meta });
+      continue;
+    }
+
     const fn = funcoes[config.funcao];
     if (!fn) continue;
 
@@ -467,6 +573,10 @@ async function renderGraficos(configs) {
     if (config.descricao) dados.sub = config.descricao;
     const el = document.getElementById(config.elemento_id);
     if (!el) continue;
+    if (graficosInstancias[config.elemento_id]) {
+      try { graficosInstancias[config.elemento_id].destroy(); } catch(e) {}
+      delete graficosInstancias[config.elemento_id];
+    }
     el.innerHTML = '';
 
     const calcularAltura = (tipo, dados) => {
@@ -477,15 +587,24 @@ async function renderGraficos(configs) {
   };
 
     if (config.tipo_grafico === 'metric_card') {
+      cardCache[config.elemento_id] = dados.valor;
       renderMetricCard({ elementId: config.elemento_id, label: config.titulo, value: dados.valor, sub: dados.sub, formato: config.formato });
     } else if (config.tipo_grafico === 'donut') {
       renderDonut({ elementId: config.elemento_id, labels: dados.categorias, valores: dados.valores, height: 500 });
     } else if (config.tipo_grafico === 'bar_horizontal') {
       renderBarHorizontal({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, media: dados.media, height: calcularAltura(config.tipo_grafico, dados) });
+    } else if (config.tipo_grafico === 'linha') {
+      renderLinha({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, height: Math.max(300, calcularAltura(config.tipo_grafico)), formato: config.formato, meta: config.meta });
     } else if (config.tipo_grafico === 'bar_stacked') {
       renderBarStacked({ elementId: config.elemento_id, categorias: dados.categorias, series: dados.series, height: calcularAltura(config.tipo_grafico) });
     } else if (config.tipo_grafico === 'bar_vertical') {
       renderBarStacked({ elementId: config.elemento_id, categorias: dados.categorias, series: dados.series, horizontal: false, height: calcularAltura(config.tipo_grafico) });
+    } else if (config.tipo_grafico === 'bar_vertical_simples') {
+      renderBarVerticalSimples({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, height: Math.max(300, calcularAltura(config.tipo_grafico)), formato: config.formato });
+    } else if (config.tipo_grafico === 'combo') {
+      const [labelBarra, labelLinha] = (config.descricao || 'Valor,Quantidade').split(',');
+      const [fmtBarra, fmtLinha] = (config.formato || ',').split(',');
+      renderCombo({ elementId: config.elemento_id, categorias: dados.categorias, valoresBarra: dados.valoresBarra, valoresLinha: dados.valoresLinha, labelBarra, labelLinha, height: Math.max(300, calcularAltura(config.tipo_grafico)), formatoBarra: fmtBarra || null, formatoLinha: fmtLinha || null });
     } else if (config.tipo_grafico === 'lista') {
       let badges = null;
       if (config.badge_config) {
@@ -612,6 +731,9 @@ async function trocarAba(aba) {
   });
   conteudo.innerHTML = '';
   document.getElementById('zona-controles').innerHTML = '';
+  const sidebar = document.getElementById('sidebar-filtros');
+  sidebar.innerHTML = '';
+  sidebar.style.display = 'none';
 
   await renderAba(aba);
   await renderGraficos(kpiConfigsGlobal.filter(c => c.aba === aba));
@@ -638,9 +760,18 @@ async function renderAba(aba) {
   for (const linha of linhasOrdenadas) {
     const itens = linhasMap[linha].sort((a, b) => a.posicao - b.posicao);
 
-    if (itens.some(c => c.tipo_grafico === 'filtro_periodo' || c.tipo_grafico === 'filtro_cliente')) {
+    if (itens.some(c => c.tipo_grafico === 'filtro_periodo' || c.tipo_grafico === 'filtro_cliente' || c.tipo_grafico === 'filtro_campo' || c.tipo_grafico === 'filtro_mes')) {
       const zonaFiltros = document.getElementById('zona-controles');
       itens.forEach(config => {
+        if (config.tipo_grafico === 'filtro_campo' || config.tipo_grafico === 'filtro_mes') {
+          const sidebar = document.getElementById('sidebar-filtros');
+          const wrapper = document.createElement('div');
+          wrapper.id = config.elemento_id;
+          wrapper.style.cssText = 'margin-bottom:16px;';
+          sidebar.appendChild(wrapper);
+          sidebar.style.display = 'block';
+          return;
+        }
         if (config.tipo_grafico === 'filtro_periodo') {
           const wrapper = document.createElement('div');
           wrapper.style.cssText = 'display:flex; gap:8px;';
@@ -723,6 +854,11 @@ async function renderMatriz(configs) {
 
   const matrizConfig = configs.find(c => c.tipo_grafico === 'matriz');
   const matrizId = matrizConfig?.elemento_id;
+
+  if (matrizConfig?.eixo === 'mes') {
+    await renderMatrizMes(configs, matrizConfig);
+    return;
+  }
 
   if (matrizConfig?.eixo && matrizConfig.eixo !== 'data') {
     await renderMatrizCampo(configs, matrizConfig);
@@ -1069,6 +1205,129 @@ async function renderMatrizCampo(configs, matrizConfig) {
 
   renderTags();
   renderTabela();
+}
+
+async function renderMatrizMes(configs, matrizConfig) {
+  const conteudo = document.getElementById('aba-conteudo');
+  conteudo.innerHTML = '';
+
+  const matrizId = matrizConfig.elemento_id;
+  const itensMatriz = await buscarMatriz(matrizId);
+
+  if (itensMatriz.length === 0) {
+    conteudo.innerHTML = '<div style="color:var(--muted); font-size:12px; padding:20px 0;">nenhum KPI configurado para esta matriz.</div>';
+    return;
+  }
+
+  const eventos = [...new Set(itensMatriz.map(i => i.evento))];
+  const eventosCache = {};
+  for (const evento of eventos) {
+    eventosCache[evento] = await buscarEventos(evento);
+  }
+
+  const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const mesesSet = new Set();
+  Object.values(eventosCache).flat().forEach(r => {
+    const d = new Date(r.timestamp);
+    const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    mesesSet.add(mes);
+  });
+  const meses = [...mesesSet].sort();
+
+  const grupos = [...new Set(itensMatriz.map(i => i.grupo).filter(Boolean))];
+  const wrap = document.createElement('div');
+  wrap.className = 'matriz-wrap';
+  const table = document.createElement('table');
+  table.className = 'matriz-table';
+
+  const thead = document.createElement('thead');
+  thead.innerHTML = `<tr>
+    <th class="col-label" style="width:180px">indicador</th>
+    <th>acum.</th>
+    ${meses.map(m => {
+      const [ano, mes] = m.split('-');
+      return `<th>${mesesNomes[parseInt(mes) - 1]}/${ano}</th>`;
+    }).join('')}
+  </tr>`;
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  const cache = {};
+  const itensOrdenados = ordenarPorDependencia(itensMatriz);
+  const cachePorMes = {};
+  meses.forEach(m => { cachePorMes[m] = {}; });
+
+  for (const grupo of grupos) {
+    const secRow = document.createElement('tr');
+    secRow.className = 'section-row';
+    secRow.innerHTML = `<td colspan="${meses.length + 2}">${grupo}</td>`;
+    tbody.appendChild(secRow);
+
+    const itensGrupo = itensOrdenados.filter(i => i.grupo === grupo);
+
+    for (const item of itensGrupo) {
+      const def = item;
+      const eventosItem = eventosCache[def.evento] || [];
+      const fn = funcoes[def.funcao];
+      if (!fn && !item.formula) continue;
+
+      const dadosAcum = item.formula
+        ? { valor: resolverFormula(item.formula, cache) }
+        : await fn(eventosItem, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
+      const valorAcumRaw = typeof dadosAcum.valor === 'string'
+        ? parseFloat(dadosAcum.valor.replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.'))
+        : dadosAcum.valor;
+      const valorAcum = !isFinite(valorAcumRaw) ? null : valorAcumRaw;
+      cache[item.id] = valorAcum;
+
+      const dadosPorMes = {};
+      for (const mes of meses) {
+        const [ano, m] = mes.split('-');
+        const eventosMes = eventosItem.filter(r => {
+          const d = new Date(r.timestamp);
+          return d.getFullYear() === parseInt(ano) && (d.getMonth() + 1) === parseInt(m);
+        });
+        const dadosMes = item.formula
+          ? { valor: resolverFormula(item.formula, cachePorMes[mes]) }
+          : await fn(eventosMes, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
+        const valMes = typeof dadosMes.valor === 'string'
+          ? parseFloat(dadosMes.valor.replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.'))
+          : dadosMes.valor;
+        dadosPorMes[mes] = !isFinite(valMes) ? null : valMes;
+        cachePorMes[mes][item.id] = dadosPorMes[mes];
+      }
+
+      if (item.oculto) continue;
+
+      const corAcum = getCorMatriz(valorAcum, item.meta_tipo, item.limite_verde, item.limite_laranja);
+      const tr = document.createElement('tr');
+      let html = `
+        <td><div class="kpi-label" style="${item.formula ? 'cursor:help;' : ''}" data-formula="${item.formula ? montarTooltipFormula(item.formula, cache) : ''}">${def.titulo}<span class="kpi-sub">${def.descricao || ''}</span></div></td>
+        <td class="cell" style="font-weight:700; font-size:11px; color:${corAcum === 'verde' ? '#7ec87e' : corAcum === 'laranja' ? '#d4900a' : corAcum === 'vermelho' ? '#e8637a' : 'var(--muted)'};">${formatarCelulaMatriz(valorAcum, def.formato)}</td>
+      `;
+
+      for (const mes of meses) {
+        const val = dadosPorMes[mes];
+        const cor = getCorMatriz(val, item.meta_tipo, item.limite_verde, item.limite_laranja);
+        const valFormatado = formatarCelulaMatriz(val, def.formato);
+        html += `<td class="cell"><span class="matriz-pill ${cor}">${valFormatado}</span></td>`;
+      }
+
+      tr.innerHTML = html;
+      tbody.appendChild(tr);
+    }
+  }
+
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  conteudo.appendChild(wrap);
+
+  tbody.querySelectorAll('[data-formula]').forEach(el => {
+    const formula = el.dataset.formula;
+    if (!formula) return;
+    el.addEventListener('mousemove', e => mostrarTooltip(e, formula));
+    el.addEventListener('mouseleave', esconderTooltip);
+  });
 }
 
 renderDashboard();

@@ -252,5 +252,145 @@ const funcoes = {
     return { valor: distintos.size, sub: null };
   },
 
+  soma_por_mes: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const map = {};
+    filtrados.forEach(r => {
+      const dataStr = r.dados?.[campoGrupo] || r.timestamp;
+      const partes = dataStr.split('-');
+      if (partes.length < 2) return;
+      const chave = `${partes[0]}-${partes[1]}`;
+      const val = parseFloat(r.dados?.[campoValor]?.toString().replace(',', '.') || 0);
+      map[chave] = (map[chave] || 0) + (isNaN(val) ? 0 : val);
+    });
+    const chaves = Object.keys(map).sort();
+    const categorias = chaves.map(c => {
+      const [ano, mes] = c.split('-');
+      return meses[parseInt(mes) - 1];
+    });
+    const valores = chaves.map(k => funcoes.arredondar(map[k], 2));
+    return { categorias, valores };
+  },
+
+  soma_por_grupo_ordenado: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    const map = {};
+    filtrados.forEach(r => {
+      const grupo = r.dados?.[campoGrupo] || '—';
+      const val = parseFloat(r.dados?.[campoValor]?.toString().replace(',', '.') || 0);
+      map[grupo] = (map[grupo] || 0) + (isNaN(val) ? 0 : val);
+    });
+    const categorias = Object.keys(map).sort();
+    return { categorias, valores: categorias.map(k => funcoes.arredondar(map[k], 2)) };
+  },
+
+  contar_por_mes: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const map = {};
+    filtrados.forEach(r => {
+      const dataStr = r.dados?.[campoGrupo];
+      if (!dataStr) return;
+      const partes = dataStr.split('-');
+      if (partes.length < 2) return;
+      const chave = `${partes[0]}-${partes[1]}`;
+      map[chave] = (map[chave] || 0) + 1;
+    });
+    const chaves = Object.keys(map).sort();
+    const categorias = chaves.map(c => {
+      const mes = parseInt(c.split('-')[1]) - 1;
+      return meses[mes];
+    });
+    const valores = chaves.map(k => map[k]);
+    return { categorias, valores };
+  },
+
+  combo_por_grupo: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    const [campoBarra, campoLinha] = campoValor.split(',');
+    const map = {};
+    filtrados.forEach(r => {
+      const grupo = r.dados?.[campoGrupo] || '—';
+      if (!map[grupo]) map[grupo] = { barra: 0, linha: 0 };
+      const valBarra = parseFloat(r.dados?.[campoBarra]?.toString().replace(',', '.') || 0);
+      const valLinha = parseFloat(r.dados?.[campoLinha]?.toString().replace(',', '.') || 0);
+      map[grupo].barra += isNaN(valBarra) ? 0 : valBarra;
+      map[grupo].linha += isNaN(valLinha) ? 0 : valLinha;
+    });
+    const categorias = Object.keys(map).sort((a, b) => map[b].barra - map[a].barra);
+    return {
+      categorias,
+      valoresBarra: categorias.map(k => funcoes.arredondar(map[k].barra, 2)),
+      valoresLinha: categorias.map(k => funcoes.arredondar(map[k].linha, 2))
+    };
+  },
+
+ percentual_cruzado_por_mes: (eventosNumerador, eventosDenominador, campoGrupo, campoValor, campoFiltro) => {
+    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const filtradosNum = funcoes.aplicarFiltro(eventosNumerador, campoFiltro);
+    const [campoNum, campoDen] = campoValor.split(',');
+
+    function extrairMes(r) {
+      const d = new Date(r.timestamp);
+      if (isNaN(d)) return null;
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    const mapNum = {};
+    filtradosNum.forEach(r => {
+      const chave = extrairMes(r);
+      if (!chave) return;
+      const val = parseFloat(r.dados?.[campoNum]?.toString().replace(',', '.') || 0);
+      mapNum[chave] = (mapNum[chave] || 0) + (isNaN(val) ? 0 : val);
+    });
+
+    const mapDen = {};
+    eventosDenominador.forEach(r => {
+      const chave = extrairMes(r);
+      if (!chave) return;
+      const val = parseFloat(r.dados?.[campoDen]?.toString().replace(',', '.') || 0);
+      mapDen[chave] = (mapDen[chave] || 0) + (isNaN(val) ? 0 : val);
+    });
+
+    const chaves = [...new Set([...Object.keys(mapNum), ...Object.keys(mapDen)])].sort().filter(k => (mapDen[k] || 0) > 0);
+    const categorias = chaves.map(c => {
+      const [ano, m] = c.split('-');
+      const mes = parseInt(m) - 1;
+      return `${meses[mes]}/${ano}`;
+    });
+    const valores = chaves.map(k => {
+      const num = mapNum[k] || 0;
+      const den = mapDen[k] || 0;
+      return den > 0 ? funcoes.arredondar(num / den * 100, 1) : 0;
+    });
+    return { categorias, valores };
+  },
+
+  razao_por_mes: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const [campoNum, campoDen] = campoValor.split(',');
+    const mapNum = {};
+    const mapDen = {};
+    filtrados.forEach(r => {
+      const dataStr = r.dados?.[campoGrupo] || '';
+      const partes = dataStr.split('-');
+      if (partes.length < 2) return;
+      const chave = `${partes[0]}-${partes[1]}`;
+      const valNum = parseFloat(r.dados?.[campoNum]?.toString().replace(',', '.') || 0);
+      const valDen = parseFloat(r.dados?.[campoDen]?.toString().replace(',', '.') || 0);
+      mapNum[chave] = (mapNum[chave] || 0) + (isNaN(valNum) ? 0 : valNum);
+      mapDen[chave] = (mapDen[chave] || 0) + (isNaN(valDen) ? 0 : valDen);
+    });
+    const chaves = Object.keys(mapNum).sort().filter(k => (mapDen[k] || 0) > 0);
+    const categorias = chaves.map(c => {
+      const [ano, m] = c.split('-');
+      return `${meses[parseInt(m) - 1]}/${ano}`;
+    });
+    const valores = chaves.map(k => funcoes.arredondar(mapNum[k] / mapDen[k], 2));
+    return { categorias, valores };
+  },
+
   nenhuma: () => ({ valor: null, sub: null }),
 };
