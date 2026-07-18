@@ -384,7 +384,7 @@ async function buscarEventos(evento) {
   if (!eventosGlobalCache[cacheKey]) {
     let todos = [];
     let from = 0;
-    const pageSize = 100000;
+    const pageSize = 25000;
 
     while (true) {
       let query = sb
