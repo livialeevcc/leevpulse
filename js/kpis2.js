@@ -391,7 +391,7 @@ async function buscarEventos(evento) {
 
     if (dataInicio) query = query.gte('timestamp', dataInicio);
 
-    const { data } = await query.limit(100000);
+    const { data } = await query.limit(200000);
     eventosGlobalCache[cacheKey] = data || [];
   }
 
