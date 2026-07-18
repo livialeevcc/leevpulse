@@ -527,6 +527,10 @@ if (getTenantAtivo()) {
 }
 
 function iniciarApp(user) {
+  if (!window.location.search.includes('modo=formulario')) {
+    window.location.href = 'kpis2.html';
+    return;
+  }
   const tenantNome = document.getElementById('tenant-nome');
   if (tenantNome) tenantNome.textContent = getTenantAtivo();
   document.getElementById('login-screen').style.display = 'none';
@@ -534,6 +538,8 @@ function iniciarApp(user) {
   document.getElementById('app').style.display = 'block';
   document.getElementById('action-panel').style.display = 'flex';
   document.getElementById('user-email').textContent = user.email;
+  document.getElementById('tbody').innerHTML =
+    '<tr><td colspan="10" style="text-align:center; color:#666; padding:40px; font-size:12px;">carregando...</td></tr>';
   load(user);
 }
 
