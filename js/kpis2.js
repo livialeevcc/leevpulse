@@ -389,7 +389,7 @@ async function buscarEventos(evento) {
     while (true) {
       let query = sb
         .from('events')
-        .select('dados')
+        .select('dados, timestamp')
         .eq('evento', evento)
         .eq('tenant_id', getTenantAtivo())
         .order('timestamp', { ascending: true })
