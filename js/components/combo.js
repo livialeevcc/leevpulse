@@ -2,6 +2,17 @@ function renderCombo({ elementId, categorias, valoresBarra, valoresLinha, labelB
   const el = document.getElementById(elementId);
   if (!el) return;
 
+  const TOP_N = 8;
+  function calcularCorte(arr) {
+    const validos = (arr || []).filter(v => v !== null && v !== undefined && !isNaN(v));
+    if (!validos.length) return Infinity;
+    const ordenados = [...validos].sort((a, b) => b - a);
+    return ordenados.length > TOP_N ? ordenados[TOP_N - 1] : -Infinity;
+  }
+  const corteBarra = calcularCorte(valoresBarra);
+  const corteLinha = calcularCorte(valoresLinha);
+  const mostrarTodos = categorias.length <= 11;
+
   function formatar(val, fmt) {
     if (val === null || val === undefined) return '—';
     if (fmt === 'moeda') return 'R$ ' + Number(val).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
@@ -10,7 +21,17 @@ function renderCombo({ elementId, categorias, valoresBarra, valoresLinha, labelB
   }
 
   if (graficosInstancias[elementId]) {
-    graficosInstancias[elementId].updateOptions({ xaxis: { categories: categorias } });
+    graficosInstancias[elementId].updateOptions({
+      xaxis: { categories: categorias },
+      dataLabels: {
+        formatter: function(val, opts) {
+          const fmt = opts.seriesIndex === 0 ? formatoBarra : formatoLinha;
+          const corte = opts.seriesIndex === 0 ? corteBarra : corteLinha;
+          if (!mostrarTodos && val <= corte) return '';
+          return formatar(val, fmt);
+        }
+      }
+    });
     graficosInstancias[elementId].updateSeries([
       { name: labelBarra, data: valoresBarra },
       { name: labelLinha, data: valoresLinha }
@@ -48,6 +69,8 @@ function renderCombo({ elementId, categorias, valoresBarra, valoresLinha, labelB
       enabledOnSeries: [0, 1],
       formatter: function(val, opts) {
         const fmt = opts.seriesIndex === 0 ? formatoBarra : formatoLinha;
+        const corte = opts.seriesIndex === 0 ? corteBarra : corteLinha;
+        if (!mostrarTodos && val <= corte) return '';
         return formatar(val, fmt);
       },
       style: {
@@ -64,8 +87,10 @@ function renderCombo({ elementId, categorias, valoresBarra, valoresLinha, labelB
       labels: {
         style: { colors: '#666', fontSize: '9px', fontFamily: 'Montserrat' },
         rotate: -45,
-        rotateAlways: categorias.length > 6
-      }
+        rotateAlways: categorias.length > 6,
+        hideOverlappingLabels: true
+      },
+      tickAmount: Math.min(categorias.length, 20)
     },
     yaxis: [
       {

@@ -1,6 +1,9 @@
 function renderBarVerticalSimples({ elementId, categorias, valores, label, height = 300, formato }) {
   const el = document.getElementById(elementId);
   if (!el) return;
+  const validos = valores.filter(v => v !== null && v !== undefined && !isNaN(v));
+  const media = validos.length ? validos.reduce((a, b) => a + b, 0) / validos.length : 0;
+  const corte = media * 1.8;
 
   function formatarValor(val) {
     if (val === null || val === undefined) return '—';
@@ -10,7 +13,10 @@ function renderBarVerticalSimples({ elementId, categorias, valores, label, heigh
   }
 
   if (graficosInstancias[elementId]) {
-    graficosInstancias[elementId].updateOptions({ xaxis: { categories: categorias } });
+    graficosInstancias[elementId].updateOptions({
+      xaxis: { categories: categorias },
+      dataLabels: { formatter: (val) => val > corte ? formatarValor(val) : '' }
+    });
     graficosInstancias[elementId].updateSeries([{ name: label, data: valores }]);
     return;
   }
@@ -26,7 +32,7 @@ function renderBarVerticalSimples({ elementId, categorias, valores, label, heigh
     theme: { mode: 'dark' },
     dataLabels: {
       enabled: true,
-      formatter: (val) => formatarValor(val),
+      formatter: (val) => val > corte ? formatarValor(val) : '',
       style: {
         fontSize: '9px',
         fontFamily: 'Montserrat',
@@ -42,7 +48,8 @@ function renderBarVerticalSimples({ elementId, categorias, valores, label, heigh
     series: [{ name: label, data: valores }],
     xaxis: {
       categories: categorias,
-      labels: { style: { colors: '#666', fontSize: '9px', fontFamily: 'Montserrat' }, rotate: -45, rotateAlways: categorias.length > 8 }
+      labels: { style: { colors: '#666', fontSize: '9px', fontFamily: 'Montserrat' }, rotate: -45, rotateAlways: categorias.length > 8, hideOverlappingLabels: true },
+      tickAmount: Math.min(categorias.length, 15)
     },
     yaxis: {
       labels: {

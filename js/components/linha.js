@@ -1,6 +1,10 @@
 function renderLinha({ elementId, categorias, valores, label, height = 300, formato, meta }) {
   const el = document.getElementById(elementId);
   if (!el) return;
+  const validos = valores.filter(v => v !== null && v !== undefined && !isNaN(v));
+  const TOP_N = 8;
+  const ordenados = [...validos].sort((a, b) => b - a);
+  const corte = ordenados.length > TOP_N ? ordenados[TOP_N - 1] : -Infinity;
 
   const annotations = meta ? {
     yaxis: [{
@@ -23,7 +27,10 @@ function renderLinha({ elementId, categorias, valores, label, height = 300, form
   }
 
   if (graficosInstancias[elementId]) {
-    graficosInstancias[elementId].updateOptions({ xaxis: { categories: categorias } });
+    graficosInstancias[elementId].updateOptions({
+      xaxis: { categories: categorias },
+      dataLabels: { formatter: (val) => (categorias.length <= 12 || val > corte) ? formatarValor(val) : '' }
+    });
     graficosInstancias[elementId].updateSeries([{ name: label, data: valores }]);
     return;
   }
@@ -33,7 +40,7 @@ function renderLinha({ elementId, categorias, valores, label, height = 300, form
       type: 'line',
       height,
       background: 'transparent',
-      toolbar: { show: true },
+      toolbar: { show: true, offsetY: -4 },
       parentHeightOffset: 0,
     },
     theme: { mode: 'dark' },
@@ -48,7 +55,7 @@ function renderLinha({ elementId, categorias, valores, label, height = 300, form
     },
     dataLabels: {
       enabled: true,
-      formatter: (val) => formatarValor(val),
+      formatter: (val) => (categorias.length <= 11 || val > corte) ? formatarValor(val) : '',
       style: {
         fontSize: '10px',
         fontFamily: 'Montserrat',

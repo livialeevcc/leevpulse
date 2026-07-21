@@ -164,6 +164,24 @@ td {
   }
 }
 
+.apexcharts-toolbar {
+  opacity: 0 !important;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.apexcharts-canvas:hover .apexcharts-toolbar {
+  opacity: 1 !important;
+  pointer-events: auto;
+}
+
+@media (max-width: 768px) {
+  .apexcharts-toolbar {
+    opacity: 1 !important;
+    pointer-events: auto;
+  }
+}
+
 .matriz-wrap { overflow-x: auto; }
 .matriz-table { width: 100%; border-collapse: collapse; min-width: 600px; }
 .matriz-table th { font-size: 9px; color: var(--muted); font-weight: 400; padding: 6px 4px; text-align: center; border-bottom: 1px solid var(--border); }
