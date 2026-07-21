@@ -150,6 +150,20 @@ td {
   max-width: 320px;
 }
 
+@media (max-width: 768px) {
+  #sidebar-filtros {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    bottom: 0;
+    z-index: 998;
+    width: 280px !important;
+    min-width: 280px !important;
+    border-radius: 0 16px 16px 0;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.4);
+  }
+}
+
 .matriz-wrap { overflow-x: auto; }
 .matriz-table { width: 100%; border-collapse: collapse; min-width: 600px; }
 .matriz-table th { font-size: 9px; color: var(--muted); font-weight: 400; padding: 6px 4px; text-align: center; border-bottom: 1px solid var(--border); }

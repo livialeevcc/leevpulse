@@ -7,6 +7,20 @@ let screenContexto = {};
 let screenHistorico = [];
 let progressoTimer = null;
 
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar-filtros');
+  const btn = document.getElementById('sidebar-toggle');
+  if (sidebar.style.display === 'none' || sidebar.classList.contains('sidebar-hidden')) {
+    sidebar.classList.remove('sidebar-hidden');
+    sidebar.style.display = 'block';
+    btn.textContent = '✕';
+  } else {
+    sidebar.classList.add('sidebar-hidden');
+    sidebar.style.display = 'none';
+    btn.textContent = '☰';
+  }
+}
+
 
 async function abrirScreen(screenId, campo, valor) {
   if (screenAtiva) {
@@ -144,6 +158,8 @@ async function renderScreen(screenId, subAba) {
         card.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);"><span style="font-size:12px; font-weight:700;">${config.titulo}</span><input id="${config.elemento_id}-busca" type="text" placeholder="buscar..." style="width:180px; padding:6px 10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:#ccc; font-size:11px; font-family:Montserrat; outline:none;"></div><div style="max-height:400px; overflow-y:auto;"><div id="${config.elemento_id}">${loading}</div></div>`;
       } else if (config.tipo_grafico === 'bar_horizontal') {
         card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div style="max-height:400px; overflow-y:auto;"><div id="${config.elemento_id}">${loading}</div></div>`;
+      } else if (config.tipo_grafico === 'tabela') {
+        card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div id="${config.elemento_id}">${loading}</div>`;
       } else {
         card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div id="${config.elemento_id}">${loading}</div>`;
       }
@@ -204,6 +220,8 @@ const alturasPorTipo = {
   bar_vertical_simples: 6,
   comparativo_mes: 4,
   combo: 6,
+  tabela: 4,
+  filtro_data: 0,
 };
 
 function ordenarPorDependencia(itens) {
@@ -423,6 +441,17 @@ async function buscarEventos(evento) {
           return valor.includes(chave);
         });
       }
+    } else if (tipo === '_data_range') {
+      if (valor && (valor.inicio || valor.fim)) {
+        resultado = resultado.filter(r => {
+          const dataStr = r.dados?.data_autorizacao || r.dados?.data_emissao || r.dados?.emissao || '';
+          if (!dataStr) return false;
+          const data = dataStr.substring(0, 10);
+          if (valor.inicio && data < valor.inicio) return false;
+          if (valor.fim && data > valor.fim) return false;
+          return true;
+        });
+      }
     } else {
       if (Array.isArray(valor) && valor.length > 0) {
         resultado = resultado.filter(r => valor.includes(r.dados?.[tipo]));
@@ -489,6 +518,15 @@ async function renderGraficos(configs) {
         elementId: config.elemento_id,
         eventos: eventosGlobalCache[cacheKey] || [],
         campo: config.campo_grupo,
+        titulo: config.titulo,
+        onChange: onFiltroChange
+      });
+      continue;
+    }
+
+    if (config.tipo_grafico === 'filtro_data') {
+      renderFiltroData({
+        elementId: config.elemento_id,
         titulo: config.titulo,
         onChange: onFiltroChange
       });
@@ -571,6 +609,20 @@ async function renderGraficos(configs) {
       continue;
     }
 
+    if (config.tipo_grafico === 'tabela') {
+      const el = document.getElementById(config.elemento_id);
+      if (!el) continue;
+      el.innerHTML = '';
+      let filtroFinal = config.campo_filtro;
+      if (screenAtiva && screenContexto.campo) {
+        const filtroBase = Array.isArray(filtroFinal) ? filtroFinal : (filtroFinal ? JSON.parse(filtroFinal) : []);
+        filtroFinal = [...filtroBase, [screenContexto.campo, screenContexto.valor]];
+      }
+      const filtrados = funcoes.aplicarFiltro(eventos, filtroFinal);
+      renderTabela({ elementId: config.elemento_id, eventos: filtrados, colunas: config.colunas_tabela });
+      continue;
+    }
+
     const fn = funcoes[config.funcao];
     if (!fn) continue;
 
@@ -595,6 +647,9 @@ async function renderGraficos(configs) {
       return dados.categorias.length * 35;
     }
     return (alturasPorTipo[tipo] || 4) * unidade - 80;
+
+    
+
   };
 
     if (config.tipo_grafico === 'metric_card') {
@@ -640,7 +695,20 @@ async function renderGraficos(configs) {
           abrirScreen(config.link_screen.screen, config.link_screen.campo, nome);
         } : null
       });
-    } 
+    }
+
+    if (config.link_screen && graficosInstancias[config.elemento_id]) {
+      const chart = graficosInstancias[config.elemento_id];
+      const cats = dados.categorias || [];
+      chart.addEventListener('dataPointSelection', (event, chartContext, cfg) => {
+        const categoria = cats[cfg.dataPointIndex];
+        if (categoria) abrirScreen(config.link_screen.screen, config.link_screen.campo, categoria);
+      });
+      chart.addEventListener('markerClick', (event, chartContext, { dataPointIndex }) => {
+        const categoria = cats[dataPointIndex];
+        if (categoria) abrirScreen(config.link_screen.screen, config.link_screen.campo, categoria);
+      });
+    }
   }
 }
 
@@ -771,16 +839,22 @@ async function renderAba(aba) {
   for (const linha of linhasOrdenadas) {
     const itens = linhasMap[linha].sort((a, b) => a.posicao - b.posicao);
 
-    if (itens.some(c => c.tipo_grafico === 'filtro_periodo' || c.tipo_grafico === 'filtro_cliente' || c.tipo_grafico === 'filtro_campo' || c.tipo_grafico === 'filtro_mes')) {
+    if (itens.some(c => c.tipo_grafico === 'filtro_periodo' || c.tipo_grafico === 'filtro_cliente' || c.tipo_grafico === 'filtro_campo' || c.tipo_grafico === 'filtro_mes' || c.tipo_grafico === 'filtro_data')) {
       const zonaFiltros = document.getElementById('zona-controles');
       itens.forEach(config => {
-        if (config.tipo_grafico === 'filtro_campo' || config.tipo_grafico === 'filtro_mes') {
+        if (config.tipo_grafico === 'filtro_campo' || config.tipo_grafico === 'filtro_mes' || config.tipo_grafico === 'filtro_data') {
           const sidebar = document.getElementById('sidebar-filtros');
           const wrapper = document.createElement('div');
           wrapper.id = config.elemento_id;
           wrapper.style.cssText = 'margin-bottom:16px;';
           sidebar.appendChild(wrapper);
           sidebar.style.display = 'block';
+          const toggleBtn = document.getElementById('sidebar-toggle');
+          if (toggleBtn && window.innerWidth < 768) {
+            toggleBtn.style.display = 'block';
+            sidebar.classList.add('sidebar-hidden');
+            sidebar.style.display = 'none';
+          }
           return;
         }
         if (config.tipo_grafico === 'filtro_periodo') {
@@ -849,6 +923,8 @@ async function renderAba(aba) {
         card.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);"><span style="font-size:12px; font-weight:700;">${config.titulo}</span><input id="${config.elemento_id}-busca" type="text" placeholder="buscar..." style="width:180px; padding:6px 10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:#ccc; font-size:11px; font-family:Montserrat; outline:none;"></div><div style="max-height:400px; overflow-y:auto;"><div id="${config.elemento_id}">${loading}</div></div>`;
       } else if (config.tipo_grafico === 'bar_horizontal') {
         card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div style="max-height:400px; overflow-y:auto;"><div id="${config.elemento_id}">${loading}</div></div>`;
+      } else if (config.tipo_grafico === 'tabela') {
+        card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div id="${config.elemento_id}">${loading}</div>`;
       } else {
         card.innerHTML = `<div style="font-size:12px; font-weight:700; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06);">${config.titulo}</div><div id="${config.elemento_id}">${loading}</div>`;
       }

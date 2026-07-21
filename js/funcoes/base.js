@@ -7,12 +7,19 @@ const funcoes = {
 
   aplicarFiltro: (eventos, campoFiltro) => {
     if (!campoFiltro || campoFiltro.length === 0) return eventos;
+    const mesesNomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
     return eventos.filter(r =>
-      campoFiltro.every(([campo, valor]) =>
-        Array.isArray(valor)
-          ? valor.includes(r.dados?.[campo])
-          : r.dados?.[campo] === valor
-      )
+      campoFiltro.every(([campo, valor]) => {
+        if (Array.isArray(valor)) return valor.includes(r.dados?.[campo]);
+        const mesIdx = mesesNomes.indexOf(valor);
+        if (mesIdx >= 0) {
+          const dataStr = r.dados?.[campo] || '';
+          const partes = dataStr.split('-');
+          if (partes.length >= 2) return parseInt(partes[1]) === mesIdx + 1;
+          return false;
+        }
+        return r.dados?.[campo] === valor;
+      })
     );
   },
 

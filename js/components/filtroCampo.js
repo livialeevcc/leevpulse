@@ -111,3 +111,54 @@ function renderFiltroMes({ elementId, eventos, campo, titulo, onChange }) {
     });
   }
 }
+
+function renderFiltroData({ elementId, titulo, onChange }) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+
+  const atual = filtrosAtivos['_data_range'] || {};
+  const colapsado = el.dataset.colapsado === 'true';
+  const temFiltro = atual.inicio || atual.fim;
+  const countLabel = temFiltro ? ' (ativo)' : '';
+
+  let html = '';
+  html += `<div class="filtro-titulo" style="font-size:10px; color:#666; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center;"><span>${titulo || 'Período'}${countLabel}</span><span style="font-size:9px; color:#444;">${colapsado ? '+' : '−'}</span></div>`;
+
+  if (!colapsado) {
+    html += '<div style="display:flex; flex-direction:column; gap:6px;">';
+    html += `<label style="font-size:9px; color:#555;">De</label>`;
+    html += `<input type="date" class="filtro-data-inicio" value="${atual.inicio || ''}" min="2024-01-01" max="2030-12-31" style="padding:5px 8px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:4px; color:#ccc; font-size:10px; font-family:Montserrat; outline:none;">`;
+    html += `<label style="font-size:9px; color:#555;">Até</label>`;
+    html += `<input type="date" class="filtro-data-fim" value="${atual.fim || ''}" min="2024-01-01" max="2030-12-31" style="padding:5px 8px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:4px; color:#ccc; font-size:10px; font-family:Montserrat; outline:none;">`;
+    if (temFiltro) {
+      html += `<button class="filtro-data-limpar" style="padding:4px 8px; font-size:9px; font-family:Montserrat; background:transparent; border:1px solid rgba(255,255,255,0.1); border-radius:4px; color:#888; cursor:pointer;">limpar</button>`;
+    }
+    html += '</div>';
+  }
+
+  el.innerHTML = html;
+
+  el.querySelector('.filtro-titulo').addEventListener('click', () => {
+    el.dataset.colapsado = colapsado ? 'false' : 'true';
+    renderFiltroData({ elementId, titulo, onChange });
+  });
+
+  if (!colapsado) {
+    const inicio = el.querySelector('.filtro-data-inicio');
+    const fim = el.querySelector('.filtro-data-fim');
+
+    inicio.addEventListener('change', () => {
+      onChange('_data_range', { inicio: inicio.value, fim: fim.value || '' });
+    });
+    fim.addEventListener('change', () => {
+      onChange('_data_range', { inicio: inicio.value || '', fim: fim.value });
+    });
+
+    const limpar = el.querySelector('.filtro-data-limpar');
+    if (limpar) {
+      limpar.addEventListener('click', () => {
+        onChange('_data_range', '');
+      });
+    }
+  }
+}
