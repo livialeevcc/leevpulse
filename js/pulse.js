@@ -374,11 +374,8 @@ async function openModal(evento, label, schema) {
   document.getElementById('modal-title').textContent = label;
   mostrarBotaoLink(evento);
   const fields = document.getElementById('modal-fields');
-  fields.innerHTML = '';
-
-  for (const c of schema) {
-    fields.innerHTML += await renderCampo(c);
-  }
+  const camposHtml = await Promise.all(schema.map(c => renderCampo(c)));
+  fields.innerHTML = camposHtml.join('');
 
   document.getElementById('modal-footer').innerHTML = `
     <button onclick="closeModal()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#666; cursor:pointer;">cancelar</button>
@@ -608,13 +605,12 @@ async function editRow(r) {
   currentCaseId = r.case_id;
 
   const fields = document.getElementById('modal-fields');
-  fields.innerHTML = '';
-
-  for (const c of schema) {
+  const camposHtml = await Promise.all(schema.map(c => {
     const valorAtual = r.dados?.[c.campo] || '';
     const valorPai = c.depende_de ? r.dados?.[c.depende_de] || null : null;
-    fields.innerHTML += await renderCampo(c, valorAtual, valorPai);
-  }
+    return renderCampo(c, valorAtual, valorPai);
+  }));
+  fields.innerHTML = camposHtml.join('');
 
   document.getElementById('modal-footer').innerHTML = `
     <button onclick="closeModal()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#666; cursor:pointer;">cancelar</button>
@@ -840,11 +836,8 @@ async function openModalWizard(evento, label, schema, reguaPontos, mensagemFinal
     stepDiv.dataset.etapa = etapa;
     stepDiv.style.display = 'none';
 
-    let html = '';
-    for (const c of camposEtapa) {
-      html += await renderCampo(c);
-    }
-    stepDiv.innerHTML = html;
+    const camposHtml = await Promise.all(camposEtapa.map(c => renderCampo(c)));
+    stepDiv.innerHTML = camposHtml.join('');
     fields.appendChild(stepDiv);
   }
 
