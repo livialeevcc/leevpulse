@@ -250,10 +250,16 @@ async function filtrarOpcoes(campo, fonte, busca) {
       ${o.label}
     </div>`).join('');
 
-  if (busca && filtradas.length === 0) {
-    addEl.textContent = '+ Adicionar "' + busca + '"';
+  const inputEl = document.getElementById('field-' + campo);
+  const valorAtual = inputEl ? inputEl.value.trim() : busca;
+
+  if (valorAtual && filtradas.length === 0) {
+    addEl.textContent = '+ Adicionar "' + valorAtual + '"';
     addEl.style.display = 'block';
-    addEl.onclick = () => adicionarNovo(campo, fonte, busca);
+    addEl.onclick = () => {
+      const nomeNaHora = inputEl ? inputEl.value.trim() : valorAtual;
+      adicionarNovo(campo, fonte, nomeNaHora);
+    };
   } else {
     addEl.style.display = 'none';
   }
@@ -275,14 +281,14 @@ function selecionarOpcao(campo, value, label, el) {
 async function adicionarNovo(campo, fonte, nome) {
   if (fonte === 'clients') {
     const slug = nome.toLowerCase().replace(/\s+/g, '_');
-    const { error } = await sb.from('clients').insert({ nome, slug });
+    const { error } = await sb.from('clients').insert({ nome, slug, tenant_id: getTenantAtivo() });
     if (error) { alert('erro ao adicionar: ' + error.message); return; }
     selecionarOpcao(campo, slug, nome, null);
   }
   if (fonte === 'contacts') {
     const clienteId = document.getElementById('field-cliente_id')?.dataset.value || document.getElementById('field-cliente_id')?.value;
     if (!clienteId) { alert('selecione o cliente primeiro'); return; }
-    const { error } = await sb.from('contacts').insert({ nome, cliente_id: clienteId });
+    const { error } = await sb.from('contacts').insert({ nome, cliente_id: clienteId, tenant_id: getTenantAtivo() });
     if (error) { alert('erro ao adicionar: ' + error.message); return; }
     selecionarOpcao(campo, nome, nome, null);
   }
