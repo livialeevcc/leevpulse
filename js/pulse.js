@@ -903,7 +903,28 @@ function copiarLinkModal(el) {
   });
 }
 
+function validarEtapaWizard(indice) {
+  const etapa = wizardEtapas[indice];
+  const campos = currentSchema.filter(c => c.etapa === etapa);
+  for (const c of campos) {
+    if (!c.obrigatorio) continue;
+    const el = document.getElementById('field-' + c.campo);
+    if (!el) continue;
+    let val;
+    if (c.tipo === 'checkbox_multiplo') {
+      val = JSON.parse(el.dataset.values || '[]').length > 0;
+    } else if (el.tagName === 'DIV') {
+      val = (el.dataset.value || '').trim() !== '';
+    } else {
+      val = (el.value || '').trim() !== '';
+    }
+    if (!val) { alert(c.label + ' é obrigatória'); return false; }
+  }
+  return true;
+}
+
 function avancarEtapaWizard() {
+  if (!validarEtapaWizard(wizardEtapaAtual)) return;
   if (wizardEtapaAtual < wizardEtapas.length - 1) {
     mostrarEtapaWizard(wizardEtapaAtual + 1);
   }

@@ -137,7 +137,30 @@ function mostrarEtapaPublico(indice) {
       : `<button onclick="avancarPublico()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:none; background:#00e5a0; color:#0c0c0d; cursor:pointer; font-weight:500;">avançar</button>`}`;
 }
 
-function avancarPublico() { if (etapaAtualPublico < etapasPublico.length - 1) mostrarEtapaPublico(etapaAtualPublico + 1); }
+function validarEtapaPublico(indice) {
+  const etapa = etapasPublico[indice];
+  const campos = schemaPublico.filter(c => c.etapa === etapa);
+  for (const c of campos) {
+    if (!c.obrigatorio) continue;
+    const el = document.getElementById('field-' + c.campo);
+    if (!el) continue;
+    let val;
+    if (c.tipo === 'checkbox_multiplo') {
+      val = JSON.parse(el.dataset.values || '[]').length > 0;
+    } else if (el.tagName === 'DIV') {
+      val = (el.dataset.value || '').trim() !== '';
+    } else {
+      val = (el.value || '').trim() !== '';
+    }
+    if (!val) { alert(c.label + ' é obrigatória'); return false; }
+  }
+  return true;
+}
+
+function avancarPublico() {
+  if (!validarEtapaPublico(etapaAtualPublico)) return;
+  if (etapaAtualPublico < etapasPublico.length - 1) mostrarEtapaPublico(etapaAtualPublico + 1);
+}
 function voltarPublico() { if (etapaAtualPublico > 0) mostrarEtapaPublico(etapaAtualPublico - 1); }
 
 async function enviarPublico() {
