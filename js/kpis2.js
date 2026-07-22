@@ -725,7 +725,6 @@ async function renderDashboard() {
   try {
     await import(`./funcoes/${getTenantAtivo()}.js`);
   } catch(e) {}
-  console.log('configs carregadas:', kpiConfigsGlobal.map(c => c.elemento_id + ' → linha_acima:' + c.linha_acima));
   const dashboard = document.getElementById('dashboard');
   dashboard.innerHTML = '';
 
@@ -959,10 +958,11 @@ async function renderMatriz(configs) {
 
   const eventos = [...new Set(itensMatriz.map(i => i.evento))];
   const eventosCache = {};
-  for (const evento of eventos) {
-    const todos = await buscarEventos(evento);
-    eventosCache[evento] = todos;
-  }
+  await Promise.all(
+    eventos.map(evento =>
+      buscarEventos(evento).then(data => { eventosCache[evento] = data; })
+    )
+  );
 
 const mesesSet = new Set();
   Object.values(eventosCache).flat().forEach(r => {
@@ -1079,7 +1079,6 @@ const mesesSet = new Set();
           : dadosDia.valor;
         dadosPorDia[dia] = !isFinite(valDia) ? null : valDia;
         cachePorDia[dia][item.id] = dadosPorDia[dia];
-        console.log(dia, dadosPorDia[dia], typeof dadosPorDia[dia]);
       }
 
       if (item.oculto) { continue; }
@@ -1132,9 +1131,11 @@ async function renderMatrizCampo(configs, matrizConfig) {
 
   const eventos = [...new Set(itensMatriz.map(i => i.evento))];
   const eventosCache = {};
-  for (const evento of eventos) {
-    eventosCache[evento] = await buscarEventos(evento);
-  }
+  await Promise.all(
+    eventos.map(evento =>
+      buscarEventos(evento).then(data => { eventosCache[evento] = data; })
+    )
+  );
 
   const todosEventos = Object.values(eventosCache).flat();
   const opcoesEixo = [...new Set(todosEventos.map(r => r.dados?.[eixo]).filter(Boolean))].sort();
@@ -1308,9 +1309,11 @@ async function renderMatrizMes(configs, matrizConfig) {
 
   const eventos = [...new Set(itensMatriz.map(i => i.evento))];
   const eventosCache = {};
-  for (const evento of eventos) {
-    eventosCache[evento] = await buscarEventos(evento);
-  }
+  await Promise.all(
+    eventos.map(evento =>
+      buscarEventos(evento).then(data => { eventosCache[evento] = data; })
+    )
+  );
 
   const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
   const mesesSet = new Set();
