@@ -59,16 +59,17 @@
       <div style="background:var(--surface); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:28px; width:480px; max-height:80vh; overflow-y:auto;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
           <h2 id="modal-title" style="font-size:15px; font-weight:700;"></h2>
-          <span onclick="closeModal()" style="cursor:pointer; font-size:18px; color:#666; line-height:1;">×</span>
+          <div style="display:flex; align-items:center; gap:14px;">
+            <span id="modal-link-btn" onclick="copiarLinkModal(this)" style="cursor:pointer; display:none; color:#666; line-height:1;" title="copiar link público">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+            </span>
+            <span onclick="closeModal()" style="cursor:pointer; font-size:18px; color:#666; line-height:1;">×</span>
+          </div>
         </div>
         <div id="modal-fields"></div>
-        <div style="display:flex; gap:8px; margin-top:24px; justify-content:flex-end;">
-          <button onclick="closeModal()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#666; cursor:pointer;">cancelar</button>
-          <button onclick="submitForm()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:none; background:#00e5a0; color:#0c0c0d; cursor:pointer; font-weight:500;">registrar</button>
-        </div>
+        <div id="modal-footer" style="display:flex; gap:8px; margin-top:24px; justify-content:flex-end;"></div>
       </div>
     </div>
-
     <table>
       <thead id="thead"></thead>
       <tbody id="tbody"></tbody>

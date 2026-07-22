@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pulse</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="publico-wrap" style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:var(--surface); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:28px; width:100%; max-width:480px;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:24px; padding-bottom:20px; border-bottom:1px solid rgba(255,255,255,0.06);">
+        <img src="https://i.ibb.co/tMpRCVB9/Ativo-9-Elemento2.png" style="height:24px;">
+        <span style="font-size:13px; font-weight:700; color:#e8e8e6;">Pulse <span style="color:var(--accent);">Leev</span></span>
+      </div>
+      <h2 id="publico-title" style="font-size:15px; font-weight:700; margin-bottom:20px;"></h2>
+      <div id="publico-fields"></div>
+      <div id="publico-footer" style="display:flex; gap:8px; margin-top:24px; justify-content:flex-end;"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/publico.js"></script>
+</body>
+</html>
