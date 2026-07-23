@@ -851,6 +851,8 @@ function mostrarEtapaWizard(indice) {
     el.style.display = i === indice ? 'block' : 'none';
   });
   atualizarNavegacaoWizard();
+  const card = document.getElementById('modal-fields')?.parentElement;
+  if (card) card.scrollTop = 0;
 }
 
 function atualizarNavegacaoWizard() {

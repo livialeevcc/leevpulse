@@ -125,6 +125,7 @@ function mostrarEtapaPublico(indice) {
   document.querySelectorAll('.wizard-step').forEach((el, i) => {
     el.style.display = i === indice ? 'block' : 'none';
   });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   const footer = document.getElementById('publico-footer');
   const total = etapasPublico.length;
   const ehUltima = indice === total - 1;
