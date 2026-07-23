@@ -7,10 +7,10 @@ let tenantAtivo = null;
 
 async function carregarTenants(userId) {
   const { data } = await sb
-    .from('tenant_users')
-    .select('tenant_id, role, tenants(nome)')
-    .eq('user_id', userId);
-  return data || [];
+    .from('tenants')
+    .select('slug, nome')
+    .order('nome');
+  return (data || []).map(t => ({ tenant_id: t.slug, tenants: { nome: t.nome } }));
 }
 
 function getTenantAtivo() {
