@@ -605,7 +605,7 @@ async function renderGraficos(configs) {
       el.innerHTML = '';
       const eventos2 = await buscarEventos(config.evento2);
       const dados = funcoes.percentual_cruzado_por_mes(eventos, eventos2, config.campo_grupo, config.campo_valor, config.campo_filtro);
-      renderLinha({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, height: 300, formato: 'percentual', meta: config.meta });
+      renderLinha({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, height: 300, formato: 'percentual', meta: config.meta, numeradores: dados.numeradores, denominadores: dados.denominadores });
       continue;
     }
 
@@ -660,7 +660,7 @@ async function renderGraficos(configs) {
     } else if (config.tipo_grafico === 'bar_horizontal') {
       renderBarHorizontal({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, media: dados.media, height: calcularAltura(config.tipo_grafico, dados) });
     } else if (config.tipo_grafico === 'linha') {
-      renderLinha({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, height: Math.max(300, calcularAltura(config.tipo_grafico)), formato: config.formato, meta: config.meta });
+      renderLinha({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, height: Math.max(300, calcularAltura(config.tipo_grafico)), formato: config.formato, meta: config.meta, numeradores: dados.numeradores, denominadores: dados.denominadores });
     } else if (config.tipo_grafico === 'bar_stacked') {
       renderBarStacked({ elementId: config.elemento_id, categorias: dados.categorias, series: dados.series, height: calcularAltura(config.tipo_grafico) });
     } else if (config.tipo_grafico === 'bar_vertical') {

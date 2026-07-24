@@ -1,4 +1,4 @@
-function renderLinha({ elementId, categorias, valores, label, height = 300, formato, meta }) {
+function renderLinha({ elementId, categorias, valores, label, height = 300, formato, meta, numeradores, denominadores }) {
   const el = document.getElementById(elementId);
   if (!el) return;
   const validos = valores.filter(v => v !== null && v !== undefined && !isNaN(v));
@@ -80,7 +80,17 @@ function renderLinha({ elementId, categorias, valores, label, height = 300, form
     grid: { borderColor: 'rgba(255,255,255,0.06)' },
     tooltip: {
       theme: 'dark',
-      y: { formatter: (val) => formatarValor(val) }
+      y: {
+        formatter: (val, opts) => {
+          const i = opts?.dataPointIndex;
+          if (numeradores && denominadores && i != null && denominadores[i] != null) {
+            const num = Number(numeradores[i]).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+            const den = Number(denominadores[i]).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+            return `${num} / ${den} = ${formatarValor(val)}`;
+          }
+          return formatarValor(val);
+        }
+      }
     },
     annotations
   });

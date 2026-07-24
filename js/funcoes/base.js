@@ -339,9 +339,10 @@ const funcoes = {
     const [campoNum, campoDen] = campoValor.split(',');
 
     function extrairMes(r) {
-      const d = new Date(r.timestamp);
-      if (isNaN(d)) return null;
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const base = (campoGrupo ? r.dados?.[campoGrupo] : null) || r.timestamp;
+      if (!base) return null;
+      const s = String(base);
+      return s.length >= 7 ? s.substring(0, 7) : null;
     }
 
     const mapNum = {};
@@ -371,7 +372,9 @@ const funcoes = {
       const den = mapDen[k] || 0;
       return den > 0 ? funcoes.arredondar(num / den * 100, 1) : 0;
     });
-    return { categorias, valores };
+    const numeradores = chaves.map(k => funcoes.arredondar(mapNum[k] || 0, 2));
+    const denominadores = chaves.map(k => funcoes.arredondar(mapDen[k] || 0, 2));
+    return { categorias, valores, numeradores, denominadores };
   },
 
   razao_por_mes: (eventos, campoGrupo, campoValor, campoFiltro) => {
@@ -396,7 +399,9 @@ const funcoes = {
       return `${meses[parseInt(m) - 1]}/${ano}`;
     });
     const valores = chaves.map(k => funcoes.arredondar(mapNum[k] / mapDen[k], 2));
-    return { categorias, valores };
+    const numeradores = chaves.map(k => funcoes.arredondar(mapNum[k] || 0, 2));
+    const denominadores = chaves.map(k => funcoes.arredondar(mapDen[k] || 0, 2));
+    return { categorias, valores, numeradores, denominadores };
   },
 
   nenhuma: () => ({ valor: null, sub: null }),
