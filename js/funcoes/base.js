@@ -131,7 +131,9 @@ const funcoes = {
     const diasMap = {};
     const tipos = [...new Set(eventos.map(r => r.dados?.[campoGrupo]).filter(Boolean))];
     eventos.forEach(r => {
-      const dia = new Date(r.timestamp).toLocaleDateString('pt-BR');
+      const iso = String(r.timestamp).substring(0, 10);
+      const [ano, mes, d] = iso.split('-');
+      const dia = `${d}/${mes}/${ano}`;
       const val = r.dados?.[campoGrupo] || '—';
       if (!diasMap[dia]) diasMap[dia] = {};
       diasMap[dia][val] = (diasMap[dia][val] || 0) + 1;

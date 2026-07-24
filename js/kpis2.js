@@ -966,9 +966,7 @@ async function renderMatriz(configs) {
 
 const mesesSet = new Set();
   Object.values(eventosCache).flat().forEach(r => {
-    const d = new Date(r.timestamp);
-    const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    mesesSet.add(mes);
+    mesesSet.add(String(r.timestamp).substring(0, 7));
   });
   const meses = [...mesesSet].sort();
 
@@ -977,10 +975,10 @@ const mesesSet = new Set();
 
   const diasSet = new Set();
   Object.values(eventosCache).flat().forEach(r => {
-    const d = new Date(r.timestamp);
-    if (d.getFullYear() === parseInt(anoSel) && (d.getMonth() + 1) === parseInt(mesSel)) {
-      const dia = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-      diasSet.add(dia);
+    const iso = String(r.timestamp).substring(0, 10);
+    if (iso.substring(0, 7) === mesSelecionado) {
+      const [, mes, d] = iso.split('-');
+      diasSet.add(`${d}/${mes}`);
     }
   });
   const dias = [...diasSet].sort((a, b) => {
@@ -1050,10 +1048,9 @@ const mesesSet = new Set();
       const fn = funcoes[def.funcao];
       if (!fn && !item.formula) continue;
 
-      const eventosItemMes = eventosItem.filter(r => {
-        const rd = new Date(r.timestamp);
-        return rd.getFullYear() === parseInt(anoSel) && (rd.getMonth() + 1) === parseInt(mesSel);
-      });
+      const eventosItemMes = eventosItem.filter(r =>
+        String(r.timestamp).substring(0, 7) === mesSelecionado
+      );
       const dadosAcum = item.formula
         ? { valor: resolverFormula(item.formula, cache) }
         : await fn(eventosItemMes, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
@@ -1067,10 +1064,9 @@ const mesesSet = new Set();
 
       for (const dia of dias) {
         const [d, m] = dia.split('/');
-        const eventosDia = eventosItem.filter(r => {
-          const rd = new Date(r.timestamp);
-          return rd.getDate() === parseInt(d) && (rd.getMonth() + 1) === parseInt(m) && rd.getFullYear() === parseInt(anoSel);
-        });
+        const eventosDia = eventosItem.filter(r =>
+          String(r.timestamp).substring(0, 10) === `${anoSel}-${m}-${d}`
+        );
         const dadosDia = item.formula
           ? { valor: resolverFormula(item.formula, cachePorDia[dia]) }
           : await fn(eventosDia, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
@@ -1318,9 +1314,7 @@ async function renderMatrizMes(configs, matrizConfig) {
   const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
   const mesesSet = new Set();
   Object.values(eventosCache).flat().forEach(r => {
-    const d = new Date(r.timestamp);
-    const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    mesesSet.add(mes);
+    mesesSet.add(String(r.timestamp).substring(0, 7));
   });
   const meses = [...mesesSet].sort();
 
@@ -1373,10 +1367,9 @@ async function renderMatrizMes(configs, matrizConfig) {
       const dadosPorMes = {};
       for (const mes of meses) {
         const [ano, m] = mes.split('-');
-        const eventosMes = eventosItem.filter(r => {
-          const d = new Date(r.timestamp);
-          return d.getFullYear() === parseInt(ano) && (d.getMonth() + 1) === parseInt(m);
-        });
+        const eventosMes = eventosItem.filter(r =>
+          String(r.timestamp).substring(0, 7) === mes
+        );
         const dadosMes = item.formula
           ? { valor: resolverFormula(item.formula, cachePorMes[mes]) }
           : await fn(eventosMes, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
