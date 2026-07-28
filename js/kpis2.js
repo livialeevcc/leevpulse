@@ -221,6 +221,7 @@ const alturasPorTipo = {
   comparativo_mes: 4,
   combo: 6,
   tabela: 4,
+   texto: 2,
   filtro_data: 0,
 };
 
@@ -609,6 +610,13 @@ async function renderGraficos(configs) {
       continue;
     }
 
+    if (config.tipo_grafico === 'texto') {
+      const el = document.getElementById(config.elemento_id);
+      if (!el) continue;
+      renderTexto({ elementId: config.elemento_id, texto: config.descricao });
+      continue;
+    }
+
     if (config.tipo_grafico === 'tabela') {
       const el = document.getElementById(config.elemento_id);
       if (!el) continue;
@@ -619,7 +627,9 @@ async function renderGraficos(configs) {
         filtroFinal = [...filtroBase, [screenContexto.campo, screenContexto.valor]];
       }
       const filtrados = funcoes.aplicarFiltro(eventos, filtroFinal);
-      renderTabela({ elementId: config.elemento_id, eventos: filtrados, colunas: config.colunas_tabela });
+      const fnTabela = funcoes[config.funcao];
+      const transformado = fnTabela ? fnTabela(filtrados, config.campo_grupo, config.campo_valor, filtroFinal) : null;
+      renderTabela({ elementId: config.elemento_id, eventos: Array.isArray(transformado) ? transformado : filtrados, colunas: config.colunas_tabela });
       continue;
     }
 
@@ -672,9 +682,9 @@ async function renderGraficos(configs) {
       const [fmtBarra, fmtLinha] = (config.formato || ',').split(',');
       renderCombo({ elementId: config.elemento_id, categorias: dados.categorias, valoresBarra: dados.valoresBarra, valoresLinha: dados.valoresLinha, labelBarra, labelLinha, height: Math.max(300, calcularAltura(config.tipo_grafico)), formatoBarra: fmtBarra || null, formatoLinha: fmtLinha || null });
     } else if (config.tipo_grafico === 'lista') {
+      const bc = config.badge_config || {};
       let badges = null;
-      if (config.badge_config) {
-        const bc = config.badge_config;
+      if (bc.evento) {
         const badgeEventos = await buscarEventos(bc.evento);
         badges = {};
         badgeEventos.forEach(r => {
@@ -691,6 +701,10 @@ async function renderGraficos(configs) {
         formato: config.formato,
         badges,
         badgeConfig: config.badge_config,
+        faixas: bc.faixas,
+        sub: bc.sub,
+        subMax: bc.sub_max,
+        barraMax: bc.barra_max,
         onClick: config.link_screen ? (nome) => {
           abrirScreen(config.link_screen.screen, config.link_screen.campo, nome);
         } : null

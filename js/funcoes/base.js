@@ -406,5 +406,46 @@ const funcoes = {
     return { categorias, valores, numeradores, denominadores };
   },
 
+  mediaCampo: (eventos, campo) => {
+    let soma = 0, n = 0;
+    eventos.forEach(r => {
+      const bruto = r.dados?.[campo];
+      if (bruto === undefined || bruto === null || bruto === '') return;
+      const val = parseFloat(bruto.toString().replace(',', '.'));
+      if (isNaN(val)) return;
+      soma += val;
+      n++;
+    });
+    return { soma, n };
+  },
+
+  media_campos: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    const campos = (campoValor || '').split(',').map(c => c.trim()).filter(Boolean);
+    const acc = campos.reduce((a, campo) => {
+      const { soma, n } = funcoes.mediaCampo(filtrados, campo);
+      return { soma: a.soma + soma, n: a.n + n };
+    }, { soma: 0, n: 0 });
+    return { valor: acc.n > 0 ? funcoes.arredondar(acc.soma / acc.n, 2) : null, sub: null };
+  },
+
+  percentual_contagem: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    const total = eventos.length;
+    return { valor: total > 0 ? funcoes.arredondar(filtrados.length / total * 100, 2) : 0, sub: null };
+  },
+
+  media_campos_lista: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    const linhas = (campoValor || '').split(',').map(par => {
+      const [campo, ...resto] = par.split(':');
+      const nome = (campo || '').trim();
+      if (!nome) return null;
+      const { soma, n } = funcoes.mediaCampo(filtrados, nome);
+      return { label: (resto.join(':') || nome).trim(), valor: n > 0 ? funcoes.arredondar(soma / n, 2) : null };
+    }).filter(l => l && l.valor !== null).sort((a, b) => b.valor - a.valor);
+    return { categorias: linhas.map(l => l.label), valores: linhas.map(l => l.valor) };
+  },
+
   nenhuma: () => ({ valor: null, sub: null }),
 };

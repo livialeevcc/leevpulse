@@ -116,6 +116,21 @@ function toggleMenu(id) {
   menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
 }
 
+function toggleAcoes(forcar) {
+  const painel = document.getElementById('action-panel');
+  const app = document.getElementById('app');
+  const minimizar = forcar !== undefined ? forcar : painel.dataset.min !== '1';
+
+  painel.dataset.min = minimizar ? '1' : '0';
+  painel.style.width = minimizar ? '28px' : '180px';
+  painel.style.padding = minimizar ? '24px 6px' : '24px 16px';
+  document.getElementById('action-label').style.display = minimizar ? 'none' : 'block';
+  document.getElementById('action-buttons').style.display = minimizar ? 'none' : 'block';
+  document.getElementById('action-toggle').textContent = minimizar ? '‹' : '›';
+  app.style.marginRight = minimizar ? '44px' : '196px';
+  localStorage.setItem('pulse_acoes_min', minimizar ? '1' : '0');
+}
+
 document.addEventListener('click', e => {
   if (!e.target.closest('[id^="menu-"]') && e.target.textContent !== '⋯') {
     document.querySelectorAll('[id^="menu-"]').forEach(m => m.style.display = 'none');
@@ -786,6 +801,7 @@ function iniciarApp(user) {
   document.getElementById('tenant-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('action-panel').style.display = 'flex';
+  toggleAcoes(localStorage.getItem('pulse_acoes_min') === '1');
   document.getElementById('user-email').textContent = user.email;
   document.getElementById('tbody').innerHTML =
     '<tr><td colspan="10" style="text-align:center; color:#666; padding:40px; font-size:12px;">carregando...</td></tr>';

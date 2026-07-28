@@ -38,7 +38,10 @@
 </div>
 
   <div id="action-panel" style="position:fixed; right:0; top:0; bottom:0; width:180px; background:var(--surface); border-left:1px solid rgba(255,255,255,0.06); padding:24px 16px; display:none; flex-direction:column; gap:8px; z-index:50;">
-      <div style="font-size:10px; color:#666; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:8px;">ações</div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+        <span id="action-label" style="font-size:10px; color:#666; letter-spacing:0.08em; text-transform:uppercase;">ações</span>
+        <span id="action-toggle" onclick="toggleAcoes()" style="cursor:pointer; color:#666; font-size:14px; user-select:none; padding:0 4px;">›</span>
+      </div>
       <div id="action-buttons"></div>
     </div>
   <div id="app" style="display:none; margin-right:196px;">

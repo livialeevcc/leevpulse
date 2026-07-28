@@ -81,7 +81,13 @@ function renderTabela({ elementId, eventos, colunas, formato }) {
       html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04);">';
       colunas.forEach(col => {
         const val = r.dados?.[col.campo];
-        html += `<td style="padding:8px 10px; color:#ccc; white-space:nowrap;">${formatar(val, col.formato)}</td>`;
+        const exibido = col.mapa && col.mapa[val] !== undefined ? col.mapa[val] : formatar(val, col.formato);
+        const cor = col.cores && col.cores[exibido] ? col.cores[exibido] : '#ccc';
+        const peso = col.cores && col.cores[exibido] ? '700' : '400';
+        const quebra = col.largura
+          ? `max-width:${col.largura}px; white-space:normal; word-break:break-word; line-height:1.5;`
+          : 'white-space:nowrap;';
+        html += `<td style="padding:8px 10px; color:${cor}; font-weight:${peso}; vertical-align:top; ${quebra}">${exibido}</td>`;
       });
       html += '</tr>';
     });
