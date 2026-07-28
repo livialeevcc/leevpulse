@@ -51,7 +51,7 @@ async function abrirScreen(screenId, campo, valor) {
   header.appendChild(btnVoltar);
 
   const titulo = document.createElement('span');
-  titulo.textContent = valor;
+  titulo.textContent = (valor && typeof valor === 'object') ? (valor.rotulo || '') : valor;
   titulo.style.cssText = 'font-size:16px; font-weight:700; color:#eee;';
   header.appendChild(titulo);
 
@@ -461,7 +461,9 @@ async function buscarEventos(evento) {
       }
     }
   });
-  return resultado;
+
+  const derivar = funcoes['derivar_' + evento];
+  return derivar ? derivar(resultado) : resultado;
 }
 
 function onFiltroChange(tipo, valor) {
@@ -652,6 +654,17 @@ async function renderGraficos(configs) {
     }
     el.innerHTML = '';
 
+    const valorDoClique = (categoria) => {
+      if (config.funcao !== 'contar_por_faixa') return categoria;
+      const faixas = funcoes.faixasDeTexto(config.campo_valor);
+      const i = faixas.findIndex(f => f.label === categoria);
+      if (i < 0) return categoria;
+      const alvo = { rotulo: categoria };
+      if (i > 0) alvo.apos = faixas[i - 1].limite;
+      if (isFinite(faixas[i].limite)) alvo.ate = faixas[i].limite;
+      return alvo;
+    };
+
     const calcularAltura = (tipo, dados) => {
     if (tipo === 'bar_horizontal' && dados?.categorias?.length > 8) {
       return dados.categorias.length * 35;
@@ -706,7 +719,7 @@ async function renderGraficos(configs) {
         subMax: bc.sub_max,
         barraMax: bc.barra_max,
         onClick: config.link_screen ? (nome) => {
-          abrirScreen(config.link_screen.screen, config.link_screen.campo, nome);
+          abrirScreen(config.link_screen.screen, config.link_screen.campo, valorDoClique(nome));
         } : null
       });
     }
@@ -716,11 +729,11 @@ async function renderGraficos(configs) {
       const cats = dados.categorias || [];
       chart.addEventListener('dataPointSelection', (event, chartContext, cfg) => {
         const categoria = cats[cfg.dataPointIndex];
-        if (categoria) abrirScreen(config.link_screen.screen, config.link_screen.campo, categoria);
+        if (categoria) abrirScreen(config.link_screen.screen, config.link_screen.campo, valorDoClique(categoria));
       });
       chart.addEventListener('markerClick', (event, chartContext, { dataPointIndex }) => {
         const categoria = cats[dataPointIndex];
-        if (categoria) abrirScreen(config.link_screen.screen, config.link_screen.campo, categoria);
+        if (categoria) abrirScreen(config.link_screen.screen, config.link_screen.campo, valorDoClique(categoria));
       });
     }
   }

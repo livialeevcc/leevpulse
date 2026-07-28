@@ -10,6 +10,13 @@ const funcoes = {
     const mesesNomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
     return eventos.filter(r =>
       campoFiltro.every(([campo, valor]) => {
+        if (valor && typeof valor === 'object' && !Array.isArray(valor)) {
+          const n = parseFloat(String(r.dados?.[campo] ?? '').replace(',', '.'));
+          if (isNaN(n)) return false;
+          if (valor.apos !== undefined && !(n > valor.apos)) return false;
+          if (valor.ate !== undefined && !(n <= valor.ate)) return false;
+          return true;
+        }
         if (Array.isArray(valor)) return valor.includes(r.dados?.[campo]);
         const mesIdx = mesesNomes.indexOf(valor);
         if (mesIdx >= 0) {
@@ -445,6 +452,45 @@ const funcoes = {
       return { label: (resto.join(':') || nome).trim(), valor: n > 0 ? funcoes.arredondar(soma / n, 2) : null };
     }).filter(l => l && l.valor !== null).sort((a, b) => b.valor - a.valor);
     return { categorias: linhas.map(l => l.label), valores: linhas.map(l => l.valor) };
+  },
+
+  percentual_preenchido: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    const preenchidos = filtrados.filter(r => {
+      const v = r.dados?.[campoGrupo];
+      return v !== undefined && v !== null && v !== '';
+    }).length;
+    return {
+      valor: filtrados.length > 0 ? funcoes.arredondar(preenchidos / filtrados.length * 100, 2) : 0,
+      sub: null
+    };
+  },
+
+  faixasDeTexto: (campoValor) => (campoValor || '').split(',').map(par => {
+    const [lim, ...resto] = par.split(':');
+    const limite = (lim || '').trim();
+    return {
+      limite: (limite === '*' || limite === '') ? Infinity : parseFloat(limite.replace(',', '.')),
+      label: (resto.join(':') || limite).trim()
+    };
+  }).filter(f => !isNaN(f.limite) && f.label).sort((a, b) => a.limite - b.limite),
+
+  contar_por_faixa: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    const faixas = funcoes.faixasDeTexto(campoValor);
+    if (faixas.length === 0) return { categorias: [], valores: [] };
+
+    const mapa = {};
+    faixas.forEach(f => { mapa[f.label] = 0; });
+    filtrados.forEach(r => {
+      const bruto = r.dados?.[campoGrupo];
+      if (bruto === undefined || bruto === null || bruto === '') return;
+      const val = parseFloat(bruto.toString().replace(',', '.'));
+      if (isNaN(val)) return;
+      const faixa = faixas.find(f => val <= f.limite);
+      if (faixa) mapa[faixa.label]++;
+    });
+    return { categorias: faixas.map(f => f.label), valores: faixas.map(f => mapa[f.label]) };
   },
 
   nenhuma: () => ({ valor: null, sub: null }),
