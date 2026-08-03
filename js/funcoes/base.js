@@ -134,7 +134,8 @@ const funcoes = {
     return { categorias, valores: categorias.map(k => map[k]) };
   },
 
-  contar_por_data: (eventos, campoGrupo) => {
+  contar_por_data: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    eventos = funcoes.aplicarFiltro(eventos, campoFiltro);
     const diasMap = {};
     const tipos = [...new Set(eventos.map(r => r.dados?.[campoGrupo]).filter(Boolean))];
     eventos.forEach(r => {
@@ -491,6 +492,46 @@ const funcoes = {
       if (faixa) mapa[faixa.label]++;
     });
     return { categorias: faixas.map(f => f.label), valores: faixas.map(f => mapa[f.label]) };
+  },
+
+  formatos: {
+    minutos:  { divisor: 60,    sufixo: ' min', casas: 0 },
+    horas:    { divisor: 3600,  sufixo: ' h',   casas: 1 },
+    dias:     { divisor: 86400, sufixo: ' d',   casas: 1 },
+    moeda:     { divisor: 1, prefixo: 'R$ ', casas: 2 },
+    percentual:{ divisor: 1, sufixo: '%',     casas: 1 },
+  },
+
+  formatarDuracao: (seg) => {
+    const s = Math.round(Number(seg));
+    const sinal = s < 0 ? '-' : '';
+    let a = Math.abs(s);
+    if (a < 60) return sinal + a + 's';
+    if (a < 3600) {
+      const m = Math.round(a / 60);
+      return m === 60 ? sinal + '1h' : sinal + m + 'min';
+    }
+    if (a < 86400) {
+      const h = Math.floor(a / 3600);
+      const m = Math.round((a % 3600) / 60);
+      if (m === 60) return sinal + (h + 1) + 'h';
+      return sinal + (m ? `${h}h ${m}min` : `${h}h`);
+    }
+    const d = Math.floor(a / 86400);
+    const h = Math.round((a % 86400) / 3600);
+    if (h === 24) return sinal + (d + 1) + 'd';
+    return sinal + (h ? `${d}d ${h}h` : `${d}d`);
+  },
+
+  formatarValor: (val, formato) => {
+    if (val === null || val === undefined || isNaN(val)) return '—';
+    if (formato === 'duracao') return funcoes.formatarDuracao(val);
+    const f = funcoes.formatos[formato];
+    if (!f) return Number(val).toLocaleString('pt-BR');
+    const n = Number(val) / f.divisor;
+    return (f.prefixo || '') + n.toLocaleString('pt-BR', {
+      minimumFractionDigits: f.casas, maximumFractionDigits: f.casas,
+    }) + (f.sufixo || '');
   },
 
   nenhuma: () => ({ valor: null, sub: null }),

@@ -112,11 +112,12 @@ function renderFiltroMes({ elementId, eventos, campo, titulo, onChange }) {
   }
 }
 
-function renderFiltroData({ elementId, titulo, onChange }) {
+function renderFiltroData({ elementId, campo, titulo, onChange }) {
   const el = document.getElementById(elementId);
   if (!el) return;
 
-  const atual = filtrosAtivos['_data_range'] || {};
+  const chave = '_data_' + (campo || '');
+  const atual = filtrosAtivos[chave] || {};
   const colapsado = el.dataset.colapsado === 'true';
   const temFiltro = atual.inicio || atual.fim;
   const countLabel = temFiltro ? ' (ativo)' : '';
@@ -140,7 +141,7 @@ function renderFiltroData({ elementId, titulo, onChange }) {
 
   el.querySelector('.filtro-titulo').addEventListener('click', () => {
     el.dataset.colapsado = colapsado ? 'false' : 'true';
-    renderFiltroData({ elementId, titulo, onChange });
+    renderFiltroData({ elementId, campo, titulo, onChange });
   });
 
   if (!colapsado) {
@@ -148,16 +149,16 @@ function renderFiltroData({ elementId, titulo, onChange }) {
     const fim = el.querySelector('.filtro-data-fim');
 
     inicio.addEventListener('change', () => {
-      onChange('_data_range', { inicio: inicio.value, fim: fim.value || '' });
+      onChange(chave, { inicio: inicio.value, fim: fim.value || '' });
     });
     fim.addEventListener('change', () => {
-      onChange('_data_range', { inicio: inicio.value || '', fim: fim.value });
+      onChange(chave, { inicio: inicio.value || '', fim: fim.value });
     });
 
     const limpar = el.querySelector('.filtro-data-limpar');
     if (limpar) {
       limpar.addEventListener('click', () => {
-        onChange('_data_range', '');
+        onChange(chave, '');
       });
     }
   }

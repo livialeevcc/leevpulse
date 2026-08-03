@@ -305,6 +305,7 @@ function formatarCelulaMatriz(valor, formato) {
   if (valor === null || valor === undefined || isNaN(valor)) return '—';
   if (formato === 'moeda') return 'R$ ' + valor.toLocaleString('pt-BR', { minimumFractionDigits: 0 });
   if (formato === 'percentual') return valor.toFixed(1) + '%';
+  if (formato === 'duracao' || funcoes.formatos[formato]) return funcoes.formatarValor(valor, formato);
   if (formato) return valor.toLocaleString('pt-BR') + ' ' + formato;
   return valor.toLocaleString('pt-BR');
 }
@@ -366,6 +367,7 @@ async function buscarMatriz(matrizId) {
 
 function getCorMatriz(valor, tipo, limiteVerde, limiteLaranja) {
   if (valor === null || valor === undefined) return 'neutro';
+  if (!tipo || limiteVerde == null || limiteLaranja == null) return 'neutro';
   if (tipo === 'maior_melhor') {
     if (valor >= limiteVerde) return 'verde';
     if (valor >= limiteLaranja) return 'laranja';
@@ -442,10 +444,11 @@ async function buscarEventos(evento) {
           return valor.includes(chave);
         });
       }
-    } else if (tipo === '_data_range') {
+    } else if (tipo.startsWith('_data_')) {
+      const campoData = tipo.replace('_data_', '');
       if (valor && (valor.inicio || valor.fim)) {
         resultado = resultado.filter(r => {
-          const dataStr = r.dados?.data_autorizacao || r.dados?.data_emissao || r.dados?.emissao || '';
+          const dataStr = String(campoData ? (r.dados?.[campoData] ?? '') : r.timestamp);
           if (!dataStr) return false;
           const data = dataStr.substring(0, 10);
           if (valor.inicio && data < valor.inicio) return false;
@@ -530,6 +533,7 @@ async function renderGraficos(configs) {
     if (config.tipo_grafico === 'filtro_data') {
       renderFiltroData({
         elementId: config.elemento_id,
+        campo: config.campo_grupo,
         titulo: config.titulo,
         onChange: onFiltroChange
       });
@@ -681,7 +685,7 @@ async function renderGraficos(configs) {
     } else if (config.tipo_grafico === 'donut') {
       renderDonut({ elementId: config.elemento_id, labels: dados.categorias, valores: dados.valores, height: 500 });
     } else if (config.tipo_grafico === 'bar_horizontal') {
-      renderBarHorizontal({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, media: dados.media, height: calcularAltura(config.tipo_grafico, dados) });
+      renderBarHorizontal({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, media: dados.media, height: calcularAltura(config.tipo_grafico, dados), formato: config.formato });
     } else if (config.tipo_grafico === 'linha') {
       renderLinha({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, height: Math.max(300, calcularAltura(config.tipo_grafico)), formato: config.formato, meta: config.meta, numeradores: dados.numeradores, denominadores: dados.denominadores });
     } else if (config.tipo_grafico === 'bar_stacked') {

@@ -1,4 +1,5 @@
-function renderBarHorizontal({ elementId, categorias, valores, label, media, height = 300 }) {
+function renderBarHorizontal({ elementId, categorias, valores, label, media, height = 300, formato }) {
+  const fmt = (val) => funcoes.formatarValor(val, formato);
   const el = document.getElementById(elementId);
   if (!el) return;
 
@@ -8,7 +9,7 @@ function renderBarHorizontal({ elementId, categorias, valores, label, media, hei
       borderColor: '#00e5a0',
       strokeDashArray: 4,
       label: {
-        text: 'média',
+        text: 'média ' + fmt(media),
         style: { color: '#00e5a0', background: 'var(--surface)', border: 'none', fontSize: '11px', fontFamily: 'Montserrat' }
       }
     }]
@@ -17,7 +18,7 @@ function renderBarHorizontal({ elementId, categorias, valores, label, media, hei
   const alturaReal = Math.max(height, categorias.length * 28);
 
   if (graficosInstancias[elementId]) {
-    graficosInstancias[elementId].updateOptions({ xaxis: { categories: categorias }, annotations });
+    graficosInstancias[elementId].updateOptions({ xaxis: { categories: categorias, labels: { formatter: (val) => fmt(val) } }, annotations });
     graficosInstancias[elementId].updateSeries([{ name: label, data: valores }]);
     return;
   }
@@ -37,17 +38,18 @@ function renderBarHorizontal({ elementId, categorias, valores, label, media, hei
     },
     dataLabels: {
       enabled: true,
+      formatter: (val) => fmt(val),
       style: {
         colors: ['rgba(255,255,255,0.45)']
       }
     },
     series: [{ name: label, data: valores }],
-    xaxis: { categories: categorias },
+    xaxis: { categories: categorias, labels: { formatter: (val) => fmt(val) } },
     colors: [paletaCores[0]],
     grid: { borderColor: 'rgba(255,255,255,0.06)' },
     yaxis: { labels: { offsetX: 0 } },
     annotations,
-    tooltip: { theme: 'dark' }
+    tooltip: { theme: 'dark', y: { formatter: (val) => fmt(val) } }
   });
   chart.render();
   graficosInstancias[elementId] = chart;
