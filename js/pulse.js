@@ -484,6 +484,18 @@ function pontuarResposta(gabarito, valor, regua) {
   return null;
 }
 
+function tetoResposta(gabarito, regua) {
+  if (!gabarito || !regua) return null;
+  let max = null;
+  for (const nivel of Object.keys(regua)) {
+    const letras = gabarito[nivel] || [];
+    if (Array.isArray(letras) && letras.length) {
+      if (max == null || regua[nivel] > max) max = regua[nivel];
+    }
+  }
+  return max;
+}
+
 function renderListaWizard(schema, data) {
   const thead = document.getElementById('thead');
   const tbody = document.getElementById('tbody');
@@ -492,6 +504,7 @@ function renderListaWizard(schema, data) {
 
   const colunas = schema.filter(c => c.visivel === true).sort((a, b) => a.ordem - b.ordem);
   const temPontuacao = (data || []).some(r => r.dados?.pontuacao_total != null);
+  const temNota = (data || []).some(r => r.dados?.pontuacao_percentual != null);
 
   const tr = document.createElement('tr');
   colunas.forEach(c => {
@@ -501,7 +514,7 @@ function renderListaWizard(schema, data) {
   });
   if (temPontuacao) {
     const thPontos = document.createElement('th');
-    thPontos.textContent = 'Pontos';
+    thPontos.textContent = temNota ? 'Nota' : 'Pontos';
     tr.appendChild(thPontos);
   }
   const thData = document.createElement('th');
@@ -525,8 +538,16 @@ function renderListaWizard(schema, data) {
       html += `<td class="mono">${formatarValorLista(c, r.dados?.[c.campo])}</td>`;
     });
     if (temPontuacao) {
+      const pct = r.dados?.pontuacao_percentual;
       const pts = r.dados?.pontuacao_total;
-      html += `<td class="mono">${pts != null ? pts : ''}</td>`;
+      let cel = '';
+      if (pct != null) {
+        const cor = pct >= 70 ? '#7ec87e' : pct >= 40 ? '#d9c97e' : '#e8637a';
+        cel = `<span style="color:${cor}; font-weight:600;">${pct}</span>`;
+      } else if (pts != null) {
+        cel = String(pts);
+      }
+      html += `<td class="mono">${cel}</td>`;
     }
     html += `<td class="mono">${formatTs(r.timestamp)}</td>`;
     html += `<td class="mono" style="color:#666;">ver ›</td>`;
@@ -543,6 +564,33 @@ function renderListaWizard(schema, data) {
 function abrirDetalheWizard(caseId) {
   const { registro, schema } = registrosWizard[caseId];
   const dados = registro.dados || {};
+  const regua = currentAction?.regua_pontos || null;
+
+  const contagemNivel = {};
+  let totalPontuado = 0;
+  if (regua) {
+    Object.keys(regua).forEach(n => contagemNivel[n] = 0);
+    schema.forEach(c => {
+      if (!c.gabarito) return;
+      totalPontuado++;
+      const valor = dados[c.campo];
+      for (const nivel of Object.keys(regua)) {
+        const letras = c.gabarito[nivel] || [];
+        if (Array.isArray(letras) && letras.includes(valor)) { contagemNivel[nivel]++; break; }
+      }
+    });
+  }
+
+  const niveisHtml = totalPontuado === 0 ? '' : Object.keys(contagemNivel)
+    .sort((a, b) => regua[b] - regua[a])
+    .map(n => {
+      const qtd = contagemNivel[n];
+      const perc = Math.round(qtd / totalPontuado * 100);
+      const cor = regua[n] > 0 ? '#7ec87e' : regua[n] < 0 ? '#e8637a' : '#888';
+      return `<span style="color:#666;">${n} <b style="color:${cor}; font-weight:600;">${perc}%</b> <span style="color:#4a4a4a;">(${qtd})</span></span>`;
+    }).join('');
+
+  const pct = dados.pontuacao_percentual;
 
   const linkBtn = document.getElementById('modal-link-btn');
   if (linkBtn) linkBtn.style.display = 'none';
@@ -555,10 +603,24 @@ function abrirDetalheWizard(caseId) {
   fields.innerHTML = '';
 
   if (dados.pontuacao_total != null) {
+    const notaLabel = pct == null ? 'Pontuação total' : pct >= 0 ? 'Nota' : 'Saldo negativo';
+    const notaValor = pct == null
+      ? (dados.pontuacao_total > 0 ? '+' : '') + dados.pontuacao_total
+      : pct >= 0 ? pct + '/100' : String(pct);
+    const notaCor = pct == null
+      ? (dados.pontuacao_total > 0 ? '#7ec87e' : dados.pontuacao_total < 0 ? '#e8637a' : '#e8e8e6')
+      : pct >= 0 ? '#7ec87e' : '#e8637a';
+
     fields.innerHTML += `
-      <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 16px; background:var(--surface2); border-radius:8px; margin-bottom:16px;">
-        <span style="font-size:12px; color:#888; text-transform:uppercase; letter-spacing:0.05em;">Pontuação total</span>
-        <span style="font-size:18px; font-weight:700; color:${dados.pontuacao_total > 0 ? '#7ec87e' : dados.pontuacao_total < 0 ? '#e8637a' : '#e8e8e6'};">${dados.pontuacao_total > 0 ? '+' : ''}${dados.pontuacao_total}</span>
+      <div style="padding:14px 16px; background:var(--surface2); border-radius:8px; margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:12px; color:#888; text-transform:uppercase; letter-spacing:0.05em;">${notaLabel}</span>
+          <span style="font-size:20px; font-weight:700; color:${notaCor};">${notaValor}</span>
+        </div>
+        <div style="display:flex; gap:18px; margin-top:8px; font-size:11px; flex-wrap:wrap;">
+          <span style="color:#666;">pontos <b style="color:#8a8a88; font-weight:600;">${dados.pontuacao_total > 0 ? '+' : ''}${dados.pontuacao_total}</b></span>
+          ${niveisHtml}
+        </div>
       </div>`;
   }
 
@@ -591,10 +653,37 @@ function abrirDetalheWizard(caseId) {
         ? `<span style="font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; margin-left:8px; background:${ponto > 0 ? 'rgba(126,200,126,0.15)' : ponto < 0 ? 'rgba(232,99,122,0.15)' : 'rgba(255,255,255,0.06)'}; color:${ponto > 0 ? '#7ec87e' : ponto < 0 ? '#e8637a' : '#888'};">${ponto > 0 ? '+' : ''}${ponto}</span>`
         : '';
 
+      let alternativas = '';
+      if (c.gabarito && regua && Array.isArray(c.opcoes)) {
+        const opts = c.opcoes.map(o => ({
+          val: o.valor ?? o,
+          lab: o.label ?? o,
+          pt: pontuarResposta(c.gabarito, o.valor ?? o, regua)
+        }));
+
+        const pontuados = opts.filter(o => o.pt != null).map(o => o.pt);
+        const maxPt = pontuados.length ? Math.max(...pontuados) : null;
+        const acertou = ponto != null && maxPt != null && ponto === maxPt;
+
+        const itens = opts.map(o => {
+          const sel = o.val === valor;
+          const melhor = maxPt != null && o.pt === maxPt && !sel && !acertou;
+          const corTexto = sel ? '#c8c8c6' : melhor ? '#5f8a63' : '#4a4a4a';
+          const corPonto = sel ? '#8a8a88' : melhor ? '#4e7352' : '#3f3f3f';
+          return `
+            <div style="display:flex; justify-content:space-between; gap:12px; padding:2px 0; font-size:11px; line-height:1.4; color:${corTexto};">
+              <span>${sel ? '&#9679;' : '&#9675;'} ${o.lab}</span>
+              <span style="font-variant-numeric:tabular-nums; color:${corPonto};">${o.pt != null ? (o.pt > 0 ? '+' : '') + o.pt : ''}</span>
+            </div>`;
+        }).join('');
+        alternativas = `<div style="margin-top:6px; padding-left:2px;">${itens}</div>`;
+      }
+
       html += `
         <div style="margin-bottom:8px;">
           <span style="font-size:10px; color:#666; text-transform:uppercase;">${c.label}</span>
           <div style="font-size:13px; color:#e8e8e6; margin-top:2px;">${valorFmt}${badgePonto}</div>
+          ${alternativas}
         </div>`;
     }
 
@@ -671,6 +760,7 @@ async function submitForm() {
 
   if (reguaPontosAtual) {
     let pontuacaoTotal = 0;
+    let tetoTotal = 0;
     let temGabarito = false;
     for (const c of currentSchema) {
       if (!c.gabarito) continue;
@@ -679,8 +769,13 @@ async function submitForm() {
       const valorPonto = ponto == null ? 0 : ponto;
       dados[c.campo + '_pontos'] = valorPonto;
       pontuacaoTotal += valorPonto;
+      const teto = tetoResposta(c.gabarito, reguaPontosAtual);
+      if (teto != null) tetoTotal += teto;
     }
-    if (temGabarito) dados.pontuacao_total = pontuacaoTotal;
+    if (temGabarito) {
+      dados.pontuacao_total = pontuacaoTotal;
+      if (tetoTotal > 0) dados.pontuacao_percentual = Math.round(pontuacaoTotal / tetoTotal * 100);
+    }
   }
 
   const { error } = await sb.from('events').insert({
