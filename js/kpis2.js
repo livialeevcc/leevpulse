@@ -21,6 +21,11 @@ function toggleSidebar() {
   }
 }
 
+function chaveCache(evento, lookups) {
+  const dataInicio = getDataInicio();
+  const l = (lookups && lookups.length) ? JSON.stringify(lookups) : '';
+  return evento + (dataInicio || '') + l;
+}
 
 async function abrirScreen(screenId, campo, valor) {
   if (screenAtiva) {
@@ -398,9 +403,9 @@ function getDataInicio() {
   return d.toISOString();
 }
 
-async function buscarEventos(evento) {
+async function buscarEventos(evento, lookups = null) {
   const dataInicio = getDataInicio();
-  const cacheKey = evento + (dataInicio || '');
+  const cacheKey = chaveCache(evento, lookups);
 
   if (!eventosGlobalCache[cacheKey]) {
     let todos = [];
@@ -408,13 +413,18 @@ async function buscarEventos(evento) {
     const pageSize = 25000;
 
     while (true) {
-      let query = sb
-        .from('events')
-        .select('dados, timestamp')
-        .eq('evento', evento)
-        .eq('tenant_id', getTenantAtivo())
-        .order('timestamp', { ascending: true })
-        .range(from, from + pageSize - 1);
+      let query = (lookups && lookups.length)
+        ? sb.rpc('events_com_lookup', { p_evento: evento, p_lookups: lookups })
+            .select('dados, timestamp')
+            .eq('tenant_id', getTenantAtivo())
+            .order('timestamp', { ascending: true })
+            .range(from, from + pageSize - 1)
+        : sb.from('events')
+            .select('dados, timestamp')
+            .eq('evento', evento)
+            .eq('tenant_id', getTenantAtivo())
+            .order('timestamp', { ascending: true })
+            .range(from, from + pageSize - 1);
 
       if (dataInicio) query = query.gte('timestamp', dataInicio);
 
@@ -484,7 +494,12 @@ function setPeriodo(dias, btn) {
 
 async function renderGraficos(configs) {
   resetMetricCardIndex();
-  const eventoIds = [...new Set(configs.map(c => c.evento))];
+  const cargas = {};
+  configs.forEach(c => {
+    if (!c.evento) return;
+    const k = chaveCache(c.evento, c.lookups);
+    if (!cargas[k]) cargas[k] = { evento: c.evento, lookups: c.lookups };
+  });
 
   const unidade = calcularUnidade(configs[0]?.aba);
 
@@ -492,9 +507,9 @@ async function renderGraficos(configs) {
 
   const eventosCache = {};
   await Promise.all(
-    eventoIds.map(evento =>
-      buscarEventos(evento).then(data => {
-        eventosCache[evento] = data;
+    Object.entries(cargas).map(([k, c]) =>
+      buscarEventos(c.evento, c.lookups).then(data => {
+        eventosCache[k] = data;
       })
     )
   );
@@ -507,7 +522,7 @@ async function renderGraficos(configs) {
     if (config.tipo_grafico === 'titulo' || config.tipo_grafico === 'filtro_periodo' || config.tipo_grafico === 'filtro_cliente') continue;
 
     if (config.tipo_grafico === 'filtro_campo') {
-      const cacheKey = config.evento + (getDataInicio() || '');
+      const cacheKey = chaveCache(config.evento, config.lookups);
       renderFiltroCampo({
         elementId: config.elemento_id,
         eventos: eventosGlobalCache[cacheKey] || [],
@@ -519,7 +534,7 @@ async function renderGraficos(configs) {
     }
 
     if (config.tipo_grafico === 'filtro_mes') {
-      const cacheKey = config.evento + (getDataInicio() || '');
+      const cacheKey = chaveCache(config.evento, config.lookups);
       renderFiltroMes({
         elementId: config.elemento_id,
         eventos: eventosGlobalCache[cacheKey] || [],
@@ -540,7 +555,7 @@ async function renderGraficos(configs) {
       continue;
     }
 
-    const eventos = eventosCache[config.evento];
+    const eventos = eventosCache[chaveCache(config.evento, config.lookups)];
 
     if (config.tipo_grafico === 'comparativo') {
       const el = document.getElementById(config.elemento_id);
