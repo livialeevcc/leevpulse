@@ -334,7 +334,7 @@ async function renderCampo(c, valorAtual = '', valorPai = null) {
         ${input}
       </div>`;
   } else if ((c.tipo === 'select' || c.tipo === 'select_com_cor') && opcoes.length > 0) {
-    if (opcoes.length <= 5) {
+    if (opcoes.length <= 6) {
       const chips = opcoes.map(o => `
         <div onclick="selectChip(this, '${c.campo}')" data-value="${o.value}" style="display:inline-block; cursor:pointer; font-size:11px; padding:5px 12px; border-radius:20px; border:1px solid ${o.value === valorAtual ? '#00e5a0' : 'rgba(255,255,255,0.1)'}; color:${o.value === valorAtual ? '#00e5a0' : '#666'}; background:${o.value === valorAtual ? 'rgba(0,229,160,0.08)' : 'transparent'}; margin:0 6px 6px 0; transition:all 0.15s;">
           ${o.label}
