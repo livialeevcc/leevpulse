@@ -531,32 +531,37 @@ function setPeriodo(dias, btn) {
 
 async function renderGraficos(configs) {
   resetMetricCardIndex();
-    const cargas = {};
-    configs.forEach(c => {
-      fontesDe(c).forEach(f => {
-        const k = chaveFonte(f);
-        if (k && !cargas[k]) cargas[k] = f;
-      });
-    });
-
   const unidade = calcularUnidade(configs[0]?.aba);
-
   iniciarProgressoLento();
-
   const eventosCache = {};
+  const cardCache = {};
+
+  const porLinha = {};
+  configs.forEach(c => {
+    const l = parseInt(c.linha_matriz) || 0;
+    if (!porLinha[l]) porLinha[l] = [];
+    porLinha[l].push(c);
+  });
+  const linhasRender = Object.keys(porLinha).map(Number).sort((a, b) => a - b);
+
+  for (const linhaAtual of linhasRender) {
+  const doLinha = porLinha[linhaAtual];
+
+  const cargas = {};
+  doLinha.forEach(c => {
+    fontesDe(c).forEach(f => {
+      const k = chaveFonte(f);
+      if (k && !eventosCache[k] && !cargas[k]) cargas[k] = f;
+    });
+  });
+
   await Promise.all(
     Object.entries(cargas).map(([k, f]) =>
-      carregarFonte(f).then(data => {
-        eventosCache[k] = data;
-      })
+      carregarFonte(f).then(data => { eventosCache[k] = data; })
     )
   );
 
-  finalizarProgresso();
-
-  const cardCache = {};
-
-  for (const config of configs) {
+  for (const config of doLinha) {
     if (config.tipo_grafico === 'titulo' || config.tipo_grafico === 'filtro_periodo' || config.tipo_grafico === 'filtro_cliente') continue;
 
     if (config.tipo_grafico === 'filtro_campo') {
@@ -813,8 +818,10 @@ async function renderGraficos(configs) {
       });
     }
   }
-}
+  }
 
+  finalizarProgresso();
+}
 let tenantAtualConfig = null;
 
 async function renderDashboard() {
