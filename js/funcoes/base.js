@@ -534,5 +534,193 @@ const funcoes = {
     }) + (f.sufixo || '');
   },
 
+// Tabela de ranking com colunas por ano, total e ultima ocorrencia.
+  // campoGrupo: "campoAgrupamento,campoData"
+  // campoValor: campo a somar
+  // extras: campos adicionais a trazer, separados por virgula
+  tabela_ranking_periodo: (eventos, campoGrupo, campoValor, campoFiltro, params) => {
+    const [campoNome, campoData] = (campoGrupo || '').split(',').map(c => c.trim());
+    const listaExtras = (params && params.extras) || [];
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    const mapa = {};
+
+    filtrados.forEach(r => {
+      const d = r.dados || {};
+      const nome = d[campoNome];
+      if (!nome) return;
+
+      if (!mapa[nome]) {
+        mapa[nome] = { nome, periodos: {}, total: 0, ultima: '', extras: {} };
+        listaExtras.forEach(e => { mapa[nome].extras[e] = d[e] || ''; });
+      }
+
+      const linha = mapa[nome];
+      const data = String(campoData ? (d[campoData] ?? '') : r.timestamp).substring(0, 10);
+      const periodo = data.substring(0, 4);
+      const val = parseFloat(d[campoValor]?.toString().replace(',', '.') || 0);
+      const valor = isNaN(val) ? 0 : val;
+
+      if (periodo) linha.periodos[periodo] = (linha.periodos[periodo] || 0) + valor;
+      linha.total += valor;
+      if (data > linha.ultima) linha.ultima = data;
+    });
+
+    const linhas = Object.values(mapa);
+    const periodos = [...new Set(linhas.flatMap(l => Object.keys(l.periodos)))].sort();
+
+    return linhas
+      .map(l => {
+        const out = { nome: l.nome, ...l.extras };
+        periodos.forEach(p => { out[p] = funcoes.arredondar(l.periodos[p] || null, 2); });
+        out.total = funcoes.arredondar(l.total, 2);
+        out.ultima_ocorrencia = l.ultima ? l.ultima.split('-').reverse().join('/') : '';
+        return { dados: out };
+      })
+      .sort((a, b) => b.dados.total - a.dados.total);
+  },
+
+  soma_por_ano: (eventos, campoGrupo, campoValor, campoFiltro) => {
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    const map = {};
+    filtrados.forEach(r => {
+      const dataStr = String(r.dados?.[campoGrupo] || r.timestamp);
+      const ano = dataStr.substring(0, 4);
+      if (!ano) return;
+      const val = parseFloat(r.dados?.[campoValor]?.toString().replace(',', '.') || 0);
+      map[ano] = (map[ano] || 0) + (isNaN(val) ? 0 : val);
+    });
+    const categorias = Object.keys(map).sort();
+    return { categorias, valores: categorias.map(k => funcoes.arredondar(map[k], 2)) };
+  },
+
+  // Duas series por mes, uma de cada evento.
+  // campoGrupo: "campoDataEvento1,campoDataEvento2"
+  // campoValor: "campoValorEvento1,campoValorEvento2"
+  // nomes: "Vendas,Compras" (vem da coluna descricao)
+  series_dois_eventos_por_mes: (eventos1, eventos2, campoGrupo, campoValor, campoFiltro, params, filtro2) => {
+    const [campoData1, campoData2] = (campoGrupo || '').split(',').map(c => c.trim());
+    const [campoVal1, campoVal2] = (campoValor || '').split(',').map(c => c.trim());
+    const [nome1, nome2] = (params && params.series) || ['Série 1', 'Série 2'];
+
+    const somar = (lista, campoData, campoVal) => {
+      const map = {};
+      lista.forEach(r => {
+        const chave = String(r.dados?.[campoData] || r.timestamp).substring(0, 7);
+        if (!chave || chave.length < 7) return;
+        const val = parseFloat(r.dados?.[campoVal]?.toString().replace(',', '.') || 0);
+        map[chave] = (map[chave] || 0) + (isNaN(val) ? 0 : val);
+      });
+      return map;
+    };
+
+    const map1 = somar(funcoes.aplicarFiltro(eventos1, campoFiltro), campoData1, campoVal1);
+    const map2 = somar(funcoes.aplicarFiltro(eventos2, filtro2), campoData2, campoVal2);
+    const categorias = [...new Set([...Object.keys(map1), ...Object.keys(map2)])].sort();
+
+    return {
+      categorias,
+      series: [
+        { name: nome1, data: categorias.map(k => funcoes.arredondar(map1[k] || 0, 2)) },
+        { name: nome2, data: categorias.map(k => funcoes.arredondar(map2[k] || 0, 2)) }
+      ]
+    };
+  },
+
+  // Duas series por grupo, uma de cada evento.
+  // campoGrupo: "campoGrupoEvento1,campoGrupoEvento2"
+  // campoValor: "campoValorEvento1,campoValorEvento2"
+  // nomes: "Vendemos,Compramos" (vem da coluna descricao)
+  series_dois_eventos_por_grupo: (eventos1, eventos2, campoGrupo, campoValor, campoFiltro, params, filtro2) => {
+    const [campoGrupo1, campoGrupo2] = (campoGrupo || '').split(',').map(c => c.trim());
+    const [campoVal1, campoVal2] = (campoValor || '').split(',').map(c => c.trim());
+    const [nome1, nome2] = (params && params.series) || ['Série 1', 'Série 2'];
+
+    const somar = (lista, campo, campoVal) => {
+      const map = {};
+      lista.forEach(r => {
+        const chave = r.dados?.[campo];
+        if (!chave) return;
+        const val = parseFloat(r.dados?.[campoVal]?.toString().replace(',', '.') || 0);
+        map[chave] = (map[chave] || 0) + (isNaN(val) ? 0 : val);
+      });
+      return map;
+    };
+
+    const map1 = somar(funcoes.aplicarFiltro(eventos1, campoFiltro), campoGrupo1, campoVal1);
+    const map2 = somar(funcoes.aplicarFiltro(eventos2, filtro2), campoGrupo2 || campoGrupo1, campoVal2);
+
+    const limite = parseInt(params && params.limite) || 0;
+    let categorias = [...new Set([...Object.keys(map1), ...Object.keys(map2)])]
+      .sort((a, b) => ((map1[b] || 0) + (map2[b] || 0)) - ((map1[a] || 0) + (map2[a] || 0)));
+    if (limite > 0) categorias = categorias.slice(0, limite);
+
+    return {
+      categorias,
+      series: [
+        { name: nome1, data: categorias.map(k => funcoes.arredondar(map1[k] || 0, 2)) },
+        { name: nome2, data: categorias.map(k => funcoes.arredondar(map2[k] || 0, 2)) }
+      ]
+    };
+  },
+
+  // Agrupa por um campo e soma varios campos, devolvendo formato de tabela.
+  // campoGrupo: "campoChave,campoExtra1,campoExtra2"  (extras vem do primeiro registro do grupo)
+  // campoValor: "campoSoma1,campoSoma2,..."           (somados por grupo)
+  // extras: "campoDerivado=expressao;outro=expressao|limite"
+  //
+  // Na expressao, use os nomes dos campos somados e dos extras.
+  // Ex: "preco_medio=valor_total/quantidade;margem=valor_total-custo_total|30"
+  agrupar_somando: (eventos, campoGrupo, campoValor, campoFiltro, params) => {
+    const [chave, ...camposExtras] = (campoGrupo || '').split(',').map(c => c.trim()).filter(Boolean);
+    const camposSoma = (campoValor || '').split(',').map(c => c.trim()).filter(Boolean);
+    const p = params || {};
+    const limite = parseInt(p.limite) || 0;
+    const derivados = Object.entries(p.colunas || {}).map(([nome, expr]) => ({ nome, expr }));
+
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    const mapa = {};
+
+    filtrados.forEach(r => {
+      const d = r.dados || {};
+      const k = d[chave];
+      if (!k) return;
+
+      if (!mapa[k]) {
+        mapa[k] = { [chave]: k };
+        camposExtras.forEach(c => { mapa[k][c] = d[c] ?? null; });
+        camposSoma.forEach(c => { mapa[k][c] = 0; });
+      }
+      camposSoma.forEach(c => {
+        const v = parseFloat(String(d[c] ?? '').replace(',', '.'));
+        mapa[k][c] += isNaN(v) ? 0 : v;
+      });
+    });
+
+    const linhas = Object.values(mapa).map(linha => {
+      const out = { ...linha };
+      camposSoma.forEach(c => { out[c] = funcoes.arredondar(out[c], 2); });
+
+      derivados.forEach(({ nome, expr }) => {
+        let e = expr;
+        Object.entries(out).forEach(([campo, val]) => {
+          if (typeof val === 'number') e = e.replaceAll(campo, `(${val})`);
+        });
+        try {
+          const v = Function('"use strict"; return (' + e + ')')();
+          out[nome] = isFinite(v) ? funcoes.arredondar(v, 2) : null;
+        } catch (err) {
+          out[nome] = null;
+        }
+      });
+
+      return { dados: out };
+    });
+
+    const ordenar = camposSoma[0];
+    linhas.sort((a, b) => (b.dados[ordenar] || 0) - (a.dados[ordenar] || 0));
+
+    return limite > 0 ? linhas.slice(0, limite) : linhas;
+  },
+
   nenhuma: () => ({ valor: null, sub: null }),
 };

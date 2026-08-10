@@ -21,10 +21,11 @@ function toggleSidebar() {
   }
 }
 
-function chaveCache(evento, lookups) {
+function chaveCache(evento, lookups, view) {
   const dataInicio = getDataInicio();
   const l = (lookups && lookups.length) ? JSON.stringify(lookups) : '';
-  return evento + (dataInicio || '') + l;
+  const v = view ? JSON.stringify(view) : '';
+  return (evento || '') + (dataInicio || '') + l + v;
 }
 
 async function abrirScreen(screenId, campo, valor) {
@@ -263,9 +264,11 @@ function extrairDependencias(formula) {
 function resolverFormula(formula, cache) {
   if (!formula) return null;
   let expr = formula;
-  Object.entries(cache).forEach(([id, valor]) => {
-    expr = expr.replaceAll(id, valor ?? 0);
-  });
+  Object.entries(cache)
+    .sort((a, b) => b[0].length - a[0].length)
+    .forEach(([id, valor]) => {
+      expr = expr.replaceAll(id, `(${valor ?? 0})`);
+    });
   try {
     return funcoes.arredondar(Function('"use strict"; return (' + expr + ')')());
   } catch(e) {
@@ -347,7 +350,8 @@ async function buscarKpiConfig() {
     .from('kpi_config')
     .select('*')
     .eq('tenant_id', getTenantAtivo())
-    .order('linha_matriz', { ascending: true });
+    .order('linha_matriz', { ascending: true })
+    .order('posicao', { ascending: true });
   return data || [];
 }
 
@@ -403,9 +407,30 @@ function getDataInicio() {
   return d.toISOString();
 }
 
-async function buscarEventos(evento, lookups = null) {
+function montarQuery({ evento, lookups, view, from, pageSize }) {
+  if (view) {
+    return sb.rpc('executar_view', { p_id: view.id, p_params: view.params || {} })
+      .select('dados')
+      .range(from, from + pageSize - 1);
+  }
+  if (lookups && lookups.length) {
+    return sb.rpc('events_com_lookup', { p_evento: evento, p_lookups: lookups })
+      .select('dados, timestamp')
+      .eq('tenant_id', getTenantAtivo())
+      .order('timestamp', { ascending: true })
+      .range(from, from + pageSize - 1);
+  }
+  return sb.from('events')
+    .select('dados, timestamp')
+    .eq('evento', evento)
+    .eq('tenant_id', getTenantAtivo())
+    .order('timestamp', { ascending: true })
+    .range(from, from + pageSize - 1);
+}
+
+async function buscarEventos(evento, lookups = null, view = null) {
   const dataInicio = getDataInicio();
-  const cacheKey = chaveCache(evento, lookups);
+  const cacheKey = chaveCache(evento, lookups, view);
 
   if (!eventosGlobalCache[cacheKey]) {
     let todos = [];
@@ -413,23 +438,13 @@ async function buscarEventos(evento, lookups = null) {
     const pageSize = 25000;
 
     while (true) {
-      let query = (lookups && lookups.length)
-        ? sb.rpc('events_com_lookup', { p_evento: evento, p_lookups: lookups })
-            .select('dados, timestamp')
-            .eq('tenant_id', getTenantAtivo())
-            .order('timestamp', { ascending: true })
-            .range(from, from + pageSize - 1)
-        : sb.from('events')
-            .select('dados, timestamp')
-            .eq('evento', evento)
-            .eq('tenant_id', getTenantAtivo())
-            .order('timestamp', { ascending: true })
-            .range(from, from + pageSize - 1);
+      let query = montarQuery({ evento, lookups, view, from, pageSize });
 
-      if (dataInicio) query = query.gte('timestamp', dataInicio);
+      if (dataInicio && !view) query = query.gte('timestamp', dataInicio);
 
       const { data } = await query;
       if (!data || data.length === 0) break;
+      if (view) data.forEach(r => { if (!r.timestamp && r.dados?.timestamp) r.timestamp = r.dados.timestamp; });
       todos.push(...data);
       if (data.length < pageSize) break;
       from += pageSize;
@@ -496,9 +511,15 @@ async function renderGraficos(configs) {
   resetMetricCardIndex();
   const cargas = {};
   configs.forEach(c => {
-    if (!c.evento) return;
-    const k = chaveCache(c.evento, c.lookups);
-    if (!cargas[k]) cargas[k] = { evento: c.evento, lookups: c.lookups };
+    const view = c.view_id ? { id: c.view_id, params: c.view_params } : null;
+    if (c.evento || view) {
+      const k = chaveCache(c.evento, c.lookups, view);
+      if (!cargas[k]) cargas[k] = { evento: c.evento, lookups: c.lookups, view };
+    }
+    if (c.evento2) {
+      const k2 = chaveCache(c.evento2, c.lookups_evento2);
+      if (!cargas[k2]) cargas[k2] = { evento: c.evento2, lookups: c.lookups_evento2 };
+    }
   });
 
   const unidade = calcularUnidade(configs[0]?.aba);
@@ -508,7 +529,7 @@ async function renderGraficos(configs) {
   const eventosCache = {};
   await Promise.all(
     Object.entries(cargas).map(([k, c]) =>
-      buscarEventos(c.evento, c.lookups).then(data => {
+      buscarEventos(c.evento, c.lookups, c.view).then(data => {
         eventosCache[k] = data;
       })
     )
@@ -522,7 +543,7 @@ async function renderGraficos(configs) {
     if (config.tipo_grafico === 'titulo' || config.tipo_grafico === 'filtro_periodo' || config.tipo_grafico === 'filtro_cliente') continue;
 
     if (config.tipo_grafico === 'filtro_campo') {
-      const cacheKey = chaveCache(config.evento, config.lookups);
+      const cacheKey = chaveCache(config.evento, config.lookups, config.view_id ? { id: config.view_id, params: config.view_params } : null);
       renderFiltroCampo({
         elementId: config.elemento_id,
         eventos: eventosGlobalCache[cacheKey] || [],
@@ -534,7 +555,7 @@ async function renderGraficos(configs) {
     }
 
     if (config.tipo_grafico === 'filtro_mes') {
-      const cacheKey = chaveCache(config.evento, config.lookups);
+      const cacheKey = chaveCache(config.evento, config.lookups, config.view_id ? { id: config.view_id, params: config.view_params } : null);
       renderFiltroMes({
         elementId: config.elemento_id,
         eventos: eventosGlobalCache[cacheKey] || [],
@@ -555,7 +576,7 @@ async function renderGraficos(configs) {
       continue;
     }
 
-    const eventos = eventosCache[chaveCache(config.evento, config.lookups)];
+    const eventos = eventosCache[chaveCache(config.evento, config.lookups, config.view_id ? { id: config.view_id, params: config.view_params } : null)];
 
     if (config.tipo_grafico === 'comparativo') {
       const el = document.getElementById(config.elemento_id);
@@ -617,6 +638,24 @@ async function renderGraficos(configs) {
       continue;
     }
 
+    if ((config.funcao === 'series_dois_eventos_por_mes' || config.funcao === 'series_dois_eventos_por_grupo') && config.evento2) {
+      const el = document.getElementById(config.elemento_id);
+      if (!el) continue;
+      if (graficosInstancias[config.elemento_id]) {
+        try { graficosInstancias[config.elemento_id].destroy(); } catch(e) {}
+        delete graficosInstancias[config.elemento_id];
+      }
+      el.innerHTML = '';
+      const eventos2 = eventosCache[chaveCache(config.evento2, config.lookups_evento2)];
+      const dados = funcoes[config.funcao](eventos, eventos2, config.campo_grupo, config.campo_valor, config.campo_filtro, config.parametros_funcao, config.campo_filtro2);
+      if (config.tipo_grafico === 'linha') {
+        renderLinha({ elementId: config.elemento_id, categorias: dados.categorias, series: dados.series, height: 400, formato: config.formato });
+      } else {
+        renderBarStacked({ elementId: config.elemento_id, categorias: dados.categorias, series: dados.series, horizontal: false, empilhado: false, legenda: true, formato: config.formato, height: 400 });
+      }
+      continue;
+    }
+
     if (config.funcao === 'percentual_cruzado_por_mes' && config.evento2) {
       const el = document.getElementById(config.elemento_id);
       if (!el) continue;
@@ -625,7 +664,7 @@ async function renderGraficos(configs) {
         delete graficosInstancias[config.elemento_id];
       }
       el.innerHTML = '';
-      const eventos2 = await buscarEventos(config.evento2);
+      const eventos2 = eventosCache[chaveCache(config.evento2, null)];
       const dados = funcoes.percentual_cruzado_por_mes(eventos, eventos2, config.campo_grupo, config.campo_valor, config.campo_filtro);
       renderLinha({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, height: 300, formato: 'percentual', meta: config.meta, numeradores: dados.numeradores, denominadores: dados.denominadores });
       continue;
@@ -649,7 +688,7 @@ async function renderGraficos(configs) {
       }
       const filtrados = funcoes.aplicarFiltro(eventos, filtroFinal);
       const fnTabela = funcoes[config.funcao];
-      const transformado = fnTabela ? fnTabela(filtrados, config.campo_grupo, config.campo_valor, filtroFinal) : null;
+      const transformado = fnTabela ? fnTabela(filtrados, config.campo_grupo, config.campo_valor, filtroFinal, config.parametros_funcao) : null;
       renderTabela({ elementId: config.elemento_id, eventos: Array.isArray(transformado) ? transformado : filtrados, colunas: config.colunas_tabela });
       continue;
     }
@@ -710,7 +749,7 @@ async function renderGraficos(configs) {
     } else if (config.tipo_grafico === 'bar_vertical_simples') {
       renderBarVerticalSimples({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, height: Math.max(300, calcularAltura(config.tipo_grafico)), formato: config.formato });
     } else if (config.tipo_grafico === 'combo') {
-      const [labelBarra, labelLinha] = (config.descricao || 'Valor,Quantidade').split(',');
+      const [labelBarra, labelLinha] = (config.parametros_funcao?.series) || (config.descricao || 'Valor,Quantidade').split(',');
       const [fmtBarra, fmtLinha] = (config.formato || ',').split(',');
       renderCombo({ elementId: config.elemento_id, categorias: dados.categorias, valoresBarra: dados.valoresBarra, valoresLinha: dados.valoresLinha, labelBarra, labelLinha, height: Math.max(300, calcularAltura(config.tipo_grafico)), formatoBarra: fmtBarra || null, formatoLinha: fmtLinha || null });
     } else if (config.tipo_grafico === 'lista') {
@@ -895,10 +934,14 @@ async function renderAba(aba) {
           sidebar.appendChild(wrapper);
           sidebar.style.display = 'block';
           const toggleBtn = document.getElementById('sidebar-toggle');
-          if (toggleBtn && window.innerWidth < 768) {
+          if (toggleBtn) {
             toggleBtn.style.display = 'block';
-            sidebar.classList.add('sidebar-hidden');
-            sidebar.style.display = 'none';
+            toggleBtn.textContent = '✕';
+            if (window.innerWidth < 768) {
+              toggleBtn.textContent = '☰';
+              sidebar.classList.add('sidebar-hidden');
+              sidebar.style.display = 'none';
+            }
           }
           return;
         }
@@ -1002,11 +1045,19 @@ async function renderMatriz(configs) {
     return;
   }
 
-  const eventos = [...new Set(itensMatriz.map(i => i.evento))];
+  const chaveItem = (i) => chaveCache(i.evento, i.lookups, i.view_id ? { id: i.view_id, params: i.view_params } : null);
+
+  const cargas = {};
+  itensMatriz.forEach(i => {
+    const k = chaveItem(i);
+    if (!cargas[k]) cargas[k] = { evento: i.evento, lookups: i.lookups, view: i.view_id ? { id: i.view_id, params: i.view_params } : null };
+  });
+
   const eventosCache = {};
+  iniciarProgressoLento();
   await Promise.all(
-    eventos.map(evento =>
-      buscarEventos(evento).then(data => { eventosCache[evento] = data; })
+    Object.entries(cargas).map(([k, c]) =>
+      buscarEventos(c.evento, c.lookups, c.view).then(data => { eventosCache[k] = data; })
     )
   );
 
@@ -1027,10 +1078,26 @@ const mesesSet = new Set();
       diasSet.add(`${d}/${mes}`);
     }
   });
+
   const dias = [...diasSet].sort((a, b) => {
     const [da, ma] = a.split('/');
     const [db, mb] = b.split('/');
     return new Date(`${anoSel}-${ma}-${da}`) - new Date(`${anoSel}-${mb}-${db}`);
+  });
+  const porDia = {};
+  const porMesMatriz = {};
+  Object.entries(eventosCache).forEach(([k, lista]) => {
+    porDia[k] = {};
+    porMesMatriz[k] = [];
+    lista.forEach(r => {
+      const iso = String(r.timestamp).substring(0, 10);
+      if (iso.substring(0, 7) !== mesSelecionado) return;
+      porMesMatriz[k].push(r);
+      const [, mes, d] = iso.split('-');
+      const dia = `${d}/${mes}`;
+      if (!porDia[k][dia]) porDia[k][dia] = [];
+      porDia[k][dia].push(r);
+    });
   });
 
   const zonaFiltros = document.getElementById('zona-controles');
@@ -1090,13 +1157,11 @@ const mesesSet = new Set();
 
     for (const item of itensGrupo) {
       const def = item;
-      const eventosItem = eventosCache[def.evento] || [];
+      const eventosItem = eventosCache[chaveItem(def)] || [];
       const fn = funcoes[def.funcao];
       if (!fn && !item.formula) continue;
 
-      const eventosItemMes = eventosItem.filter(r =>
-        String(r.timestamp).substring(0, 7) === mesSelecionado
-      );
+      const eventosItemMes = porMesMatriz[chaveItem(def)] || [];
       const dadosAcum = item.formula
         ? { valor: resolverFormula(item.formula, cache) }
         : await fn(eventosItemMes, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
@@ -1110,9 +1175,7 @@ const mesesSet = new Set();
 
       for (const dia of dias) {
         const [d, m] = dia.split('/');
-        const eventosDia = eventosItem.filter(r =>
-          String(r.timestamp).substring(0, 10) === `${anoSel}-${m}-${d}`
-        );
+        const eventosDia = porDia[chaveItem(def)]?.[dia] || [];
         const dadosDia = item.formula
           ? { valor: resolverFormula(item.formula, cachePorDia[dia]) }
           : await fn(eventosDia, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
@@ -1144,11 +1207,12 @@ const mesesSet = new Set();
     }
   }
 
-  table.appendChild(tbody);
-  wrap.appendChild(table);
-  conteudo.appendChild(wrap);
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    conteudo.appendChild(wrap);
+    finalizarProgresso();
 
-  tbody.querySelectorAll('[data-formula]').forEach(el => {
+    tbody.querySelectorAll('[data-formula]').forEach(el => {
     const formula = el.dataset.formula;
     if (!formula) return;
     el.addEventListener('mousemove', e => mostrarTooltip(e, formula));
@@ -1171,16 +1235,35 @@ async function renderMatrizCampo(configs, matrizConfig) {
     return;
   }
 
-  const eventos = [...new Set(itensMatriz.map(i => i.evento))];
+  const chaveItem = (i) => chaveCache(i.evento, i.lookups, i.view_id ? { id: i.view_id, params: i.view_params } : null);
+
+  const cargas = {};
+  itensMatriz.forEach(i => {
+    const k = chaveItem(i);
+    if (!cargas[k]) cargas[k] = { evento: i.evento, lookups: i.lookups, view: i.view_id ? { id: i.view_id, params: i.view_params } : null };
+  });
+
   const eventosCache = {};
+  iniciarProgressoLento();
   await Promise.all(
-    eventos.map(evento =>
-      buscarEventos(evento).then(data => { eventosCache[evento] = data; })
+    Object.entries(cargas).map(([k, c]) =>
+      buscarEventos(c.evento, c.lookups, c.view).then(data => { eventosCache[k] = data; })
     )
   );
 
   const todosEventos = Object.values(eventosCache).flat();
   const opcoesEixo = [...new Set(todosEventos.map(r => r.dados?.[eixo]).filter(Boolean))].sort();
+
+  const porValor = {};
+  Object.entries(eventosCache).forEach(([k, lista]) => {
+    porValor[k] = {};
+    lista.forEach(r => {
+      const v = r.dados?.[eixo];
+      if (!v) return;
+      if (!porValor[k][v]) porValor[k][v] = [];
+      porValor[k][v].push(r);
+    });
+  });
 
   const zonaFiltros = document.getElementById('zona-controles');
   zonaFiltros.innerHTML = '';
@@ -1250,6 +1333,7 @@ async function renderMatrizCampo(configs, matrizConfig) {
 
     if (matrizCampoSelecionados.length === 0) {
       conteudo.innerHTML = `<div style="color:#444; font-size:11px; padding:20px; text-align:center;">selecione itens acima para montar a matriz</div>`;
+      finalizarProgresso();
       return;
     }
 
@@ -1286,14 +1370,14 @@ async function renderMatrizCampo(configs, matrizConfig) {
 
       for (const item of itensGrupo) {
         const def = item;
-        const eventosItem = eventosCache[def.evento] || [];
+        const eventosItem = eventosCache[chaveItem(def)] || [];
         const fn = funcoes[def.funcao];
         if (!fn && !item.formula) continue;
 
         const dadosPorValor = {};
 
         for (const val of matrizCampoSelecionados) {
-          const eventosFiltrados = eventosItem.filter(r => r.dados?.[eixo] === val);
+          const eventosFiltrados = porValor[chaveItem(def)]?.[val] || [];
           const dados = item.formula
             ? { valor: resolverFormula(item.formula, cachePorValor[val]) }
             : await fn(eventosFiltrados, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
@@ -1321,16 +1405,16 @@ async function renderMatrizCampo(configs, matrizConfig) {
       }
     }
 
-    table.appendChild(tbody);
-    wrap.appendChild(table);
-    conteudo.appendChild(wrap);
-
-    tbody.querySelectorAll('[data-formula]').forEach(el => {
-      const formula = el.dataset.formula;
-      if (!formula) return;
-      el.addEventListener('mousemove', e => mostrarTooltip(e, formula));
-      el.addEventListener('mouseleave', esconderTooltip);
-    });
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+      conteudo.appendChild(wrap);
+      finalizarProgresso();
+      tbody.querySelectorAll('[data-formula]').forEach(el => {
+        const formula = el.dataset.formula;
+        if (!formula) return;
+        el.addEventListener('mousemove', e => mostrarTooltip(e, formula));
+        el.addEventListener('mouseleave', esconderTooltip);
+      });
   }
 
   renderTags();
@@ -1349,11 +1433,19 @@ async function renderMatrizMes(configs, matrizConfig) {
     return;
   }
 
-  const eventos = [...new Set(itensMatriz.map(i => i.evento))];
+  const chaveItem = (i) => chaveCache(i.evento, i.lookups, i.view_id ? { id: i.view_id, params: i.view_params } : null);
+
+  const cargas = {};
+  itensMatriz.forEach(i => {
+    const k = chaveItem(i);
+    if (!cargas[k]) cargas[k] = { evento: i.evento, lookups: i.lookups, view: i.view_id ? { id: i.view_id, params: i.view_params } : null };
+  });
+
   const eventosCache = {};
+  iniciarProgressoLento();
   await Promise.all(
-    eventos.map(evento =>
-      buscarEventos(evento).then(data => { eventosCache[evento] = data; })
+    Object.entries(cargas).map(([k, c]) =>
+      buscarEventos(c.evento, c.lookups, c.view).then(data => { eventosCache[k] = data; })
     )
   );
 
@@ -1363,6 +1455,16 @@ async function renderMatrizMes(configs, matrizConfig) {
     mesesSet.add(String(r.timestamp).substring(0, 7));
   });
   const meses = [...mesesSet].sort();
+
+  const porMes = {};
+  Object.entries(eventosCache).forEach(([k, lista]) => {
+    porMes[k] = {};
+    meses.forEach(m => { porMes[k][m] = []; });
+    lista.forEach(r => {
+      const m = String(r.timestamp).substring(0, 7);
+      if (porMes[k][m]) porMes[k][m].push(r);
+    });
+  });
 
   const grupos = [...new Set(itensMatriz.map(i => i.grupo).filter(Boolean))];
   const wrap = document.createElement('div');
@@ -1397,7 +1499,7 @@ async function renderMatrizMes(configs, matrizConfig) {
 
     for (const item of itensGrupo) {
       const def = item;
-      const eventosItem = eventosCache[def.evento] || [];
+      const eventosItem = eventosCache[chaveItem(def)] || [];
       const fn = funcoes[def.funcao];
       if (!fn && !item.formula) continue;
 
@@ -1413,9 +1515,7 @@ async function renderMatrizMes(configs, matrizConfig) {
       const dadosPorMes = {};
       for (const mes of meses) {
         const [ano, m] = mes.split('-');
-        const eventosMes = eventosItem.filter(r =>
-          String(r.timestamp).substring(0, 7) === mes
-        );
+        const eventosMes = porMes[chaveItem(def)]?.[mes] || [];
         const dadosMes = item.formula
           ? { valor: resolverFormula(item.formula, cachePorMes[mes]) }
           : await fn(eventosMes, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
@@ -1450,6 +1550,7 @@ async function renderMatrizMes(configs, matrizConfig) {
   table.appendChild(tbody);
   wrap.appendChild(table);
   conteudo.appendChild(wrap);
+  finalizarProgresso();
 
   tbody.querySelectorAll('[data-formula]').forEach(el => {
     const formula = el.dataset.formula;

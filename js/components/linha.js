@@ -1,7 +1,9 @@
-function renderLinha({ elementId, categorias, valores, label, height = 300, formato, meta, numeradores, denominadores }) {
+function renderLinha({ elementId, categorias, valores, series, label, height = 300, formato, meta, numeradores, denominadores }) {
   const el = document.getElementById(elementId);
   if (!el) return;
-  const validos = valores.filter(v => v !== null && v !== undefined && !isNaN(v));
+  const seriesFinal = series || [{ name: label, data: valores }];
+  const multi = seriesFinal.length > 1;
+  const validos = seriesFinal.flatMap(s => s.data).filter(v => v !== null && v !== undefined && !isNaN(v));
   const TOP_N = 8;
   const ordenados = [...validos].sort((a, b) => b - a);
   const corte = ordenados.length > TOP_N ? ordenados[TOP_N - 1] : -Infinity;
@@ -31,7 +33,7 @@ function renderLinha({ elementId, categorias, valores, label, height = 300, form
       xaxis: { categories: categorias },
       dataLabels: { formatter: (val) => (categorias.length <= 12 || val > corte) ? formatarValor(val) : '' }
     });
-    graficosInstancias[elementId].updateSeries([{ name: label, data: valores }]);
+    graficosInstancias[elementId].updateSeries(seriesFinal);
     return;
   }
 
@@ -54,7 +56,7 @@ function renderLinha({ elementId, categorias, valores, label, height = 300, form
       hover: { size: 7 }
     },
     dataLabels: {
-      enabled: true,
+      enabled: !multi,
       formatter: (val) => (categorias.length <= 11 || val > corte) ? formatarValor(val) : '',
       style: {
         fontSize: '10px',
@@ -65,7 +67,7 @@ function renderLinha({ elementId, categorias, valores, label, height = 300, form
       background: { enabled: false },
       offsetY: -8
     },
-    series: [{ name: label, data: valores }],
+    series: seriesFinal,
     xaxis: {
       categories: categorias,
       labels: { style: { colors: '#666', fontSize: '10px', fontFamily: 'Montserrat' } }
@@ -76,8 +78,9 @@ function renderLinha({ elementId, categorias, valores, label, height = 300, form
         formatter: (val) => formatarValor(val)
       }
     },
-    colors: [paletaCores[1]],
+    colors: multi ? paletaCores : [paletaCores[1]],
     grid: { borderColor: 'rgba(255,255,255,0.06)' },
+    legend: { show: multi, position: 'bottom', labels: { colors: '#999' }, fontFamily: 'Montserrat', fontSize: '11px' },
     tooltip: {
       theme: 'dark',
       y: {

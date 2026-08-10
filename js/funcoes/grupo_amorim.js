@@ -179,8 +179,8 @@ Object.assign(funcoes, {
  
       return { ...r, dados: d };
     });
-  },
- 
+
+    
+  },  
 
 });
-

@@ -12,6 +12,7 @@ function renderTabela({ elementId, eventos, colunas, formato }) {
   }
 
   let ordenacao = { campo: null, dir: 'asc' };
+  let termoBusca = '';
 
   function formatar(val, fmt) {
     if (val === null || val === undefined) return '—';
@@ -34,6 +35,13 @@ function renderTabela({ elementId, eventos, colunas, formato }) {
   function renderizar() {
     let dados = [...eventos];
 
+    if (termoBusca) {
+      const t = termoBusca.toLowerCase();
+      dados = dados.filter(r =>
+        colunas.some(col => String(r.dados?.[col.campo] ?? '').toLowerCase().includes(t))
+      );
+    }
+
     if (ordenacao.campo) {
       const col = colunas.find(c => c.campo === ordenacao.campo);
       const numerico = isNumerico(ordenacao.campo) || col?.formato === 'moeda' || col?.formato === 'percentual';
@@ -55,6 +63,8 @@ function renderTabela({ elementId, eventos, colunas, formato }) {
 
     const totais = {};
     colunas.forEach(col => {
+      if (col.totalizar === false) return;
+      if (col.expressao) return;
       if (isNumerico(col.campo) || col.formato === 'moeda' || col.formato === 'percentual') {
         totais[col.campo] = dados.reduce((s, r) => {
           const val = parseFloat(r.dados?.[col.campo]) || 0;
@@ -63,8 +73,25 @@ function renderTabela({ elementId, eventos, colunas, formato }) {
       }
     });
 
+    colunas.forEach(col => {
+      if (!col.expressao) return;
+      let expr = col.expressao;
+      Object.entries(totais).forEach(([campo, val]) => {
+        expr = expr.replaceAll(campo, `(${val})`);
+      });
+      try {
+        const v = Function('"use strict"; return (' + expr + ')')();
+        totais[col.campo] = isFinite(v) ? v : null;
+      } catch (e) {
+        totais[col.campo] = null;
+      }
+    });
+
     let html = '';
-    html += `<div style="font-size:10px; color:#555; margin-bottom:8px;">${dados.length} registros</div>`;
+    html += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span style="font-size:10px; color:#555;">${dados.length} registros</span>
+      <input id="${elementId}-busca" type="text" placeholder="buscar..." value="${termoBusca}" style="width:200px; padding:6px 10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:#ccc; font-size:11px; font-family:Montserrat; outline:none;">
+    </div>`;
     html += '<div style="overflow:auto; max-height:500px;">';
     html += '<table style="width:100%; border-collapse:collapse; font-size:11px;">';
     html += '<thead style="position:sticky; top:0; background:var(--surface); z-index:1;"><tr>';
@@ -118,6 +145,16 @@ function renderTabela({ elementId, eventos, colunas, formato }) {
       });
     });
   }
+
+  const inputBusca = document.getElementById(`${elementId}-busca`);
+    if (inputBusca) {
+      inputBusca.addEventListener('input', (e) => {
+        termoBusca = e.target.value;
+        renderizar();
+        const novo = document.getElementById(`${elementId}-busca`);
+        if (novo) { novo.focus(); novo.setSelectionRange(termoBusca.length, termoBusca.length); }
+      });
+    }
 
   renderizar();
 }

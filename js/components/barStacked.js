@@ -1,4 +1,4 @@
-function renderBarStacked({ elementId, categorias, series, horizontal = true, height = 350 }) {
+function renderBarStacked({ elementId, categorias, series, horizontal = true, height = 350, empilhado = true, formato = null, legenda = false }) {
   const el = document.getElementById(elementId);
   if (!el) return;
 
@@ -15,7 +15,7 @@ function renderBarStacked({ elementId, categorias, series, horizontal = true, he
     chart: {
       type: 'bar',
       height: alturaReal,
-      stacked: true,
+      stacked: empilhado,
       background: 'transparent'
     },
     theme: { mode: 'dark' },
@@ -23,7 +23,8 @@ function renderBarStacked({ elementId, categorias, series, horizontal = true, he
       bar: { horizontal, borderRadius: 4 }
     },
     dataLabels: {
-      enabled: true,
+      enabled: empilhado,
+      formatter: (val) => funcoes.formatarValor(val, formato),
       style: {
         colors: ['rgba(255,255,255,0.45)']
       }
@@ -31,9 +32,10 @@ function renderBarStacked({ elementId, categorias, series, horizontal = true, he
     series,
     xaxis: { categories: categorias },
     colors: coresAjustadas,
+    yaxis: { labels: { formatter: (val) => funcoes.formatarValor(val, formato) } },
     grid: { borderColor: 'rgba(255,255,255,0.06)' },
-    legend: { show: false },
-    tooltip: { theme: 'dark' }
+    legend: { show: legenda, position: 'bottom', labels: { colors: '#999' }, fontFamily: 'Montserrat', fontSize: '11px' },
+    tooltip: { theme: 'dark', y: { formatter: (val) => funcoes.formatarValor(val, formato) } }
   });
   chart.render();
   graficosInstancias[elementId] = chart;
