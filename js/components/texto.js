@@ -3,7 +3,7 @@ function renderTexto({ elementId, texto }) {
   if (!el) return;
 
   if (!texto) {
-    el.innerHTML = '<div style="color:#444; font-size:11px;">sem conteúdo</div>';
+    el.innerHTML = '<div style="color:#888; font-size:11px;">sem conteúdo</div>';
     return;
   }
 

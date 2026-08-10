@@ -58,7 +58,7 @@ function renderComparativoMes({ elementId, eventos, campoData, campoValor, campo
     }
 
     if (selecionados.length === 0) {
-      html += '<div style="color:#444; font-size:11px; padding:20px; text-align:center;">selecione meses acima para comparar</div>';
+      html += '<div style="color:#888; font-size:11px; padding:20px; text-align:center;">selecione meses acima para comparar</div>';
       el.innerHTML = html;
       montarEventos();
       return;

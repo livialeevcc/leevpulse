@@ -8,7 +8,7 @@ function renderFiltroCampo({ elementId, eventos, campo, titulo, onChange }) {
 
   let html = '';
   const countLabel = selecionados.length > 0 ? ` (${selecionados.length})` : '';
-  html += `<div class="filtro-titulo" style="font-size:10px; color:#666; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center;"><span>${titulo || campo}${countLabel}</span><span style="font-size:9px; color:#444;">${colapsado ? '+' : '−'}</span></div>`;
+  html += `<div class="filtro-titulo" style="font-size:10px; color:#999; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center;"><span>${titulo || campo}${countLabel}</span><span style="font-size:9px; color:#888;">${colapsado ? '+' : '−'}</span></div>`;
 
   if (!colapsado) {
     const temNomesLongos = valores.some(v => v.length > 15);
@@ -78,7 +78,7 @@ function renderFiltroMes({ elementId, eventos, campo, titulo, onChange }) {
 
   let html = '';
   const countLabel = selecionados.length > 0 ? ` (${selecionados.length})` : '';
-  html += `<div class="filtro-titulo" style="font-size:10px; color:#666; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center;"><span>${titulo || 'Mês'}${countLabel}</span><span style="font-size:9px; color:#444;">${colapsado ? '+' : '−'}</span></div>`;
+  html += `<div class="filtro-titulo" style="font-size:10px; color:#999; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center;"><span>${titulo || 'Mês'}${countLabel}</span><span style="font-size:9px; color:#888;">${colapsado ? '+' : '−'}</span></div>`;
 
   if (!colapsado) {
     html += '<div class="filtro-btns" style="display:flex; flex-wrap:wrap; gap:4px; max-height:150px; overflow-y:auto;">';
@@ -123,13 +123,13 @@ function renderFiltroData({ elementId, campo, titulo, onChange }) {
   const countLabel = temFiltro ? ' (ativo)' : '';
 
   let html = '';
-  html += `<div class="filtro-titulo" style="font-size:10px; color:#666; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center;"><span>${titulo || 'Período'}${countLabel}</span><span style="font-size:9px; color:#444;">${colapsado ? '+' : '−'}</span></div>`;
+  html += `<div class="filtro-titulo" style="font-size:10px; color:#999; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center;"><span>${titulo || 'Período'}${countLabel}</span><span style="font-size:9px; color:#888;">${colapsado ? '+' : '−'}</span></div>`;
 
   if (!colapsado) {
     html += '<div style="display:flex; flex-direction:column; gap:6px;">';
-    html += `<label style="font-size:9px; color:#555;">De</label>`;
+    html += `<label style="font-size:9px; color:#999;">De</label>`;
     html += `<input type="date" class="filtro-data-inicio" value="${atual.inicio || ''}" min="2024-01-01" max="2030-12-31" style="padding:5px 8px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:4px; color:#ccc; font-size:10px; font-family:Montserrat; outline:none;">`;
-    html += `<label style="font-size:9px; color:#555;">Até</label>`;
+    html += `<label style="font-size:9px; color:#999;">Até</label>`;
     html += `<input type="date" class="filtro-data-fim" value="${atual.fim || ''}" min="2024-01-01" max="2030-12-31" style="padding:5px 8px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:4px; color:#ccc; font-size:10px; font-family:Montserrat; outline:none;">`;
     if (temFiltro) {
       html += `<button class="filtro-data-limpar" style="padding:4px 8px; font-size:9px; font-family:Montserrat; background:transparent; border:1px solid rgba(255,255,255,0.1); border-radius:4px; color:#888; cursor:pointer;">limpar</button>`;

@@ -7,8 +7,8 @@
   --border: rgba(255,255,255,0.08);
   --border2: rgba(255,255,255,0.12);
   --text: #f0f0ee;
-  --muted: #8890b0;
-  --muted2: #5a6080;
+  --muted: #a8b0cc;
+  --muted2: #7a82a0;
   --accent: #c8d94a;
   --accent-dim: rgba(200,217,74,0.1);
   --erro: #e8637a;
@@ -103,7 +103,7 @@ td {
 .mono {
   font-family: 'Montserrat', sans-serif;
   font-size: 11px;
-  color: var(--muted);
+  color: #bcc4dd;
 }
 
 .badge {
@@ -207,3 +207,6 @@ td {
 .matriz-pill.laranja { background: rgba(212,144,10,0.12); color: #d4900a; }
 .matriz-pill.vermelho { background: rgba(232,99,122,0.12); color: #e8637a; }
 .matriz-pill.neutro { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.75); }
+.tab-btn { color: #999 !important; }
+.tab-btn[style*="var(--accent)"] { color: var(--accent) !important; }
+.filtro-titulo span { color: #999 !important; }

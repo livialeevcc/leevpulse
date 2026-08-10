@@ -6,7 +6,7 @@ function renderTabela({ elementId, eventos, colunas, formato }) {
     if (eventos.length > 0) {
       colunas = Object.keys(eventos[0]?.dados || {}).slice(0, 8).map(c => ({ campo: c, label: c }));
     } else {
-      el.innerHTML = '<div style="color:#444; font-size:11px; padding:20px; text-align:center;">sem dados</div>';
+      el.innerHTML = '<div style="color:#888; font-size:11px; padding:20px; text-align:center;">sem dados</div>';
       return;
     }
   }
@@ -89,7 +89,7 @@ function renderTabela({ elementId, eventos, colunas, formato }) {
 
     let html = '';
     html += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-      <span style="font-size:10px; color:#555;">${dados.length} registros</span>
+      <span style="font-size:10px; color:#999;">${dados.length} registros</span>
       <input id="${elementId}-busca" type="text" placeholder="buscar..." value="${termoBusca}" style="width:200px; padding:6px 10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:#ccc; font-size:11px; font-family:Montserrat; outline:none;">
     </div>`;
     html += '<div style="overflow:auto; max-height:500px;">';
@@ -124,7 +124,7 @@ function renderTabela({ elementId, eventos, colunas, formato }) {
       html += '<div style="display:flex; gap:16px; flex-wrap:wrap; padding:10px 0; border-top:2px solid rgba(255,255,255,0.1); justify-content:flex-end;">';
       colunas.forEach(col => {
         if (totais[col.campo] !== undefined) {
-          html += `<div style="font-size:10px;"><span style="color:#555; text-transform:uppercase;">${col.label || col.campo}: </span><span style="color:var(--accent); font-weight:700;">${formatar(totais[col.campo], col.formato)}</span></div>`;
+          html += `<div style="font-size:10px;"><span style="color:#999; text-transform:uppercase;">${col.label || col.campo}: </span><span style="color:var(--accent); font-weight:700;">${formatar(totais[col.campo], col.formato)}</span></div>`;
         }
       });
       html += '</div>';

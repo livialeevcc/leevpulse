@@ -51,7 +51,7 @@ function renderComparativo({ elementId, eventos, campoGrupo, campoComparacao, ca
     }
 
     if (selecionados.length === 0) {
-      html += '<div style="color:#444; font-size:11px; padding:20px; text-align:center;">selecione candidatos acima para comparar</div>';
+      html += '<div style="color:#888; font-size:11px; padding:20px; text-align:center;">selecione candidatos acima para comparar</div>';
       el.innerHTML = html;
       montarEventos();
       return;
@@ -62,7 +62,7 @@ function renderComparativo({ elementId, eventos, campoGrupo, campoComparacao, ca
     html += '<div style="overflow-x:auto;">';
     html += '<table style="width:100%; border-collapse:collapse; font-size:11px;">';
     html += '<thead><tr>';
-    html += `<th style="text-align:left; padding:8px; border-bottom:1px solid rgba(255,255,255,0.1); color:#666; text-transform:uppercase; font-size:9px; letter-spacing:0.05em;">${campoGrupo}</th>`;
+    html += `<th style="text-align:left; padding:8px; border-bottom:1px solid rgba(255,255,255,0.1); color:#999; text-transform:uppercase; font-size:9px; letter-spacing:0.05em;">${campoGrupo}</th>`;
     selecionados.forEach((nome, i) => {
       const cor = paletaCores[i % paletaCores.length];
       html += `<th style="text-align:right; padding:8px; border-bottom:1px solid rgba(255,255,255,0.1); color:${cor}; font-size:10px;">${nome}</th>`;
@@ -80,7 +80,7 @@ function renderComparativo({ elementId, eventos, campoGrupo, campoComparacao, ca
         const cor = paletaCores[i % paletaCores.length];
         const posicao = ranking.indexOf(nome) + 1;
         const corPos = posicao === 1 ? '#7ec87e' : posicao === 2 ? '#d4900a' : posicao === 3 ? '#e8637a' : '#555';
-        html += `<td style="text-align:right; padding:8px;"><div style="display:flex; align-items:center; justify-content:flex-end; gap:8px;"><span style="font-size:9px; padding:2px 6px; border-radius:3px; background:${corPos}22; color:${corPos};">${posicao}º</span><span style="font-weight:700; color:#eee;">${val.toLocaleString('pt-BR')}</span><span style="font-size:9px; color:#555;">${pct}%</span></div></td>`;
+        html += `<td style="text-align:right; padding:8px;"><div style="display:flex; align-items:center; justify-content:flex-end; gap:8px;"><span style="font-size:9px; padding:2px 6px; border-radius:3px; background:${corPos}22; color:${corPos};">${posicao}º</span><span style="font-weight:700; color:#eee;">${val.toLocaleString('pt-BR')}</span><span style="font-size:9px; color:#999;">${pct}%</span></div></td>`;
       });
       html += '</tr>';
     });

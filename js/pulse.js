@@ -96,7 +96,7 @@ function addRow(r, prepend = false) {
     const id = 'menu-' + Math.random().toString(36).substr(2, 9);
     td.innerHTML = `
       <div style="position:relative; display:inline-block;">
-        <span onclick="toggleMenu('${id}')" style="cursor:pointer; font-size:14px; color:#444; padding:4px 8px; border-radius:4px; user-select:none;">⋯</span>
+        <span onclick="toggleMenu('${id}')" style="cursor:pointer; font-size:14px; color:#888; padding:4px 8px; border-radius:4px; user-select:none;">⋯</span>
         <div id="${id}" style="display:none; position:absolute; right:0; top:24px; background:var(--surface2); border:1px solid rgba(255,255,255,0.1); border-radius:6px; min-width:120px; z-index:50; overflow:hidden;">
           <div onclick="editRow(${JSON.stringify(r).replace(/"/g, '&quot;')}); toggleMenu('${id}')" style="padding:8px 14px; font-size:11px; color:#ccc; cursor:pointer;" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='transparent'">editar</div>
         </div>
@@ -204,7 +204,7 @@ async function load(user) {
     const tab = document.createElement('button');
     tab.textContent = a.label;
     tab.className = 'tab-btn';
-    tab.style.cssText = "font-size:11px; padding:8px 16px; background:transparent; border:none; border-bottom:2px solid transparent; color:#666; cursor:pointer; transition: all 0.15s;";
+    tab.style.cssText = "font-size:11px; padding:8px 16px; background:transparent; border:none; border-bottom:2px solid transparent; color:#999; cursor:pointer; transition: all 0.15s;";
     tab.onclick = () => switchTab(a.evento, a.label, tab, a);
     tabsBar.appendChild(tab);
 
@@ -383,7 +383,7 @@ async function renderCampo(c, valorAtual = '', valorPai = null) {
     input = renderCampoFonteHtml(c, opcoes, valorAtual);
     return `
       <div style="margin-bottom:16px;" id="wrapper-${c.campo}">
-        <label style="font-size:10px; color:#666; display:block; margin-bottom:6px;">${c.label.toUpperCase()}${c.obrigatorio ? ' *' : ''}</label>
+        <label style="font-size:10px; color:#999; display:block; margin-bottom:6px;">${c.label.toUpperCase()}${c.obrigatorio ? ' *' : ''}</label>
         ${input}
       </div>`;
   } else if ((c.tipo === 'select' || c.tipo === 'select_com_cor') && opcoes.length > 0) {
@@ -417,7 +417,7 @@ async function renderCampo(c, valorAtual = '', valorPai = null) {
 
   return `
     <div style="margin-bottom:16px;" id="wrapper-${c.campo}">
-      <label style="font-size:10px; color:#666; display:block; margin-bottom:6px;">${c.label.toUpperCase()}${c.obrigatorio ? ' *' : ''}</label>
+      <label style="font-size:10px; color:#999; display:block; margin-bottom:6px;">${c.label.toUpperCase()}${c.obrigatorio ? ' *' : ''}</label>
       ${input}
     </div>`;
 }
@@ -446,7 +446,7 @@ async function openModal(evento, label, schema) {
   fields.innerHTML = camposHtml.join('');
 
   document.getElementById('modal-footer').innerHTML = `
-    <button onclick="closeModal()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#666; cursor:pointer;">cancelar</button>
+    <button onclick="closeModal()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#999; cursor:pointer;">cancelar</button>
     <button onclick="submitForm()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:none; background:#00e5a0; color:#0c0c0d; cursor:pointer; font-weight:500;">registrar</button>`;
 
   document.getElementById('modal-overlay').style.display = 'flex';
@@ -457,7 +457,7 @@ function closeModal() {
   const footer = document.getElementById('modal-footer');
   if (footer) {
     footer.innerHTML = `
-      <button onclick="closeModal()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#666; cursor:pointer;">cancelar</button>
+      <button onclick="closeModal()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#999; cursor:pointer;">cancelar</button>
       <button onclick="submitForm()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:none; background:#00e5a0; color:#0c0c0d; cursor:pointer; font-weight:500;">registrar</button>`;
   }
 }
@@ -603,14 +603,14 @@ function renderListaWizard(schema, data) {
       html += `<td class="mono">${cel}</td>`;
     }
     html += `<td class="mono">${formatTs(r.timestamp)}</td>`;
-    html += `<td class="mono" style="color:#666;">ver ›</td>`;
+    html += `<td class="mono" style="color:#999;">ver ›</td>`;
     linha.innerHTML = html;
     tbody.appendChild(linha);
   });
 
   if ((data || []).length === 0) {
     const totalCols = colunas.length + 2;
-    tbody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; color:#666; padding:40px; font-size:12px;">nenhum registro.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; color:#999; padding:40px; font-size:12px;">nenhum registro.</td></tr>`;
   }
 }
 
@@ -640,7 +640,7 @@ function abrirDetalheWizard(caseId) {
       const qtd = contagemNivel[n];
       const perc = Math.round(qtd / totalPontuado * 100);
       const cor = regua[n] > 0 ? '#7ec87e' : regua[n] < 0 ? '#e8637a' : '#888';
-      return `<span style="color:#666;">${n} <b style="color:${cor}; font-weight:600;">${perc}%</b> <span style="color:#4a4a4a;">(${qtd})</span></span>`;
+      return `<span style="color:#999;">${n} <b style="color:${cor}; font-weight:600;">${perc}%</b> <span style="color:#4a4a4a;">(${qtd})</span></span>`;
     }).join('');
 
   const pct = dados.pontuacao_percentual;
@@ -671,7 +671,7 @@ function abrirDetalheWizard(caseId) {
           <span style="font-size:20px; font-weight:700; color:${notaCor};">${notaValor}</span>
         </div>
         <div style="display:flex; gap:18px; margin-top:8px; font-size:11px; flex-wrap:wrap;">
-          <span style="color:#666;">pontos <b style="color:#8a8a88; font-weight:600;">${dados.pontuacao_total > 0 ? '+' : ''}${dados.pontuacao_total}</b></span>
+          <span style="color:#999;">pontos <b style="color:#8a8a88; font-weight:600;">${dados.pontuacao_total > 0 ? '+' : ''}${dados.pontuacao_total}</b></span>
           ${niveisHtml}
         </div>
       </div>`;
@@ -734,7 +734,7 @@ function abrirDetalheWizard(caseId) {
 
       html += `
         <div style="margin-bottom:8px;">
-          <span style="font-size:10px; color:#666; text-transform:uppercase;">${c.label}</span>
+          <span style="font-size:10px; color:#999; text-transform:uppercase;">${c.label}</span>
           <div style="font-size:13px; color:#e8e8e6; margin-top:2px;">${valorFmt}${badgePonto}</div>
           ${alternativas}
         </div>`;
@@ -745,7 +745,7 @@ function abrirDetalheWizard(caseId) {
   }
 
   document.getElementById('modal-footer').innerHTML = `
-    <button onclick="closeModal()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#666; cursor:pointer;">fechar</button>`;
+    <button onclick="closeModal()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#999; cursor:pointer;">fechar</button>`;
 
   document.getElementById('modal-overlay').style.display = 'flex';
 }
@@ -770,7 +770,7 @@ async function editRow(r) {
   fields.innerHTML = camposHtml.join('');
 
   document.getElementById('modal-footer').innerHTML = `
-    <button onclick="closeModal()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#666; cursor:pointer;">cancelar</button>
+    <button onclick="closeModal()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#999; cursor:pointer;">cancelar</button>
     <button onclick="submitForm()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:none; background:#00e5a0; color:#0c0c0d; cursor:pointer; font-weight:500;">registrar</button>`;
 
   document.getElementById('modal-overlay').style.display = 'flex';
@@ -952,7 +952,7 @@ function iniciarApp(user) {
   toggleAcoes(localStorage.getItem('pulse_acoes_min') === '1');
   document.getElementById('user-email').textContent = user.email;
   document.getElementById('tbody').innerHTML =
-    '<tr><td colspan="10" style="text-align:center; color:#666; padding:40px; font-size:12px;">carregando...</td></tr>';
+    '<tr><td colspan="10" style="text-align:center; color:#999; padding:40px; font-size:12px;">carregando...</td></tr>';
   load(user);
 }
 
@@ -1027,8 +1027,8 @@ function atualizarNavegacaoWizard() {
   const ehPrimeira = atual === 0;
 
   footer.innerHTML = `
-    <span style="font-size:11px; color:#666; margin-right:auto; align-self:center;">${atual + 1} / ${total}</span>
-    ${!ehPrimeira ? `<button onclick="voltarEtapaWizard()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#666; cursor:pointer;">voltar</button>` : ''}
+    <span style="font-size:11px; color:#999; margin-right:auto; align-self:center;">${atual + 1} / ${total}</span>
+    ${!ehPrimeira ? `<button onclick="voltarEtapaWizard()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#999; cursor:pointer;">voltar</button>` : ''}
     ${ehUltima
       ? `<button onclick="submitForm()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:none; background:#00e5a0; color:#0c0c0d; cursor:pointer; font-weight:500;">finalizar</button>`
       : `<button onclick="avancarEtapaWizard()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:none; background:#00e5a0; color:#0c0c0d; cursor:pointer; font-weight:500;">avançar</button>`

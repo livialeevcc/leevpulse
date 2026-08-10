@@ -36,7 +36,7 @@ function renderLista({ elementId, categorias, valores, formato, onClick, badges,
       : badgeConfig?.negativo?.includes(badges?.[nome]) ? '#e8637a' : '#888';
     const subTexto = montarSub(valor);
     return `
-      <span style="font-size:11px; color:#666; width:24px; text-align:right; flex-shrink:0;">${i + 1}</span>
+      <span style="font-size:11px; color:#999; width:24px; text-align:right; flex-shrink:0;">${i + 1}</span>
       <div style="flex:1; min-width:0;">
         ${badgeTexto ? `<div style="font-size:9px; color:${badgeCor}; margin-bottom:2px; text-transform:uppercase; letter-spacing:0.05em;">${badgeTexto}</div>` : ''}
         <div style="font-size:12px; color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${nome}</div>
@@ -46,7 +46,7 @@ function renderLista({ elementId, categorias, valores, formato, onClick, badges,
       </div>
       <div style="text-align:right; flex-shrink:0;">
         <div style="font-size:13px; font-weight:700; color:#eee;">${formatar(valor)}</div>
-        ${subTexto ? `<div style="font-size:10px; color:#666;">${subTexto}</div>` : ''}
+        ${subTexto ? `<div style="font-size:10px; color:#999;">${subTexto}</div>` : ''}
       </div>`;
   }
 

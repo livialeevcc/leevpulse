@@ -78,7 +78,7 @@ function renderCampoPublico(c) {
   } else if ((c.tipo === 'select' || c.tipo === 'select_com_cor') && opcoes.length > 0) {
     if (opcoes.length <= 5) {
       const chips = opcoes.map(o => `
-        <div onclick="selectChipPublico(this, '${c.campo}')" data-value="${o.value}" style="display:inline-block; cursor:pointer; font-size:11px; padding:5px 12px; border-radius:20px; border:1px solid rgba(255,255,255,0.1); color:#666; background:transparent; margin:0 6px 6px 0; transition:all 0.15s;">${o.label}</div>`).join('');
+        <div onclick="selectChipPublico(this, '${c.campo}')" data-value="${o.value}" style="display:inline-block; cursor:pointer; font-size:11px; padding:5px 12px; border-radius:20px; border:1px solid rgba(255,255,255,0.1); color:#999; background:transparent; margin:0 6px 6px 0; transition:all 0.15s;">${o.label}</div>`).join('');
       input = `<div id="field-${c.campo}" data-value="" style="padding-top:4px;">${chips}</div>`;
     } else {
       const opts = opcoes.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
@@ -88,13 +88,13 @@ function renderCampoPublico(c) {
     input = `<textarea id="field-${c.campo}" rows="3" style="width:100%; background:var(--surface2); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; color:#e8e8e6; font-size:13px; resize:vertical;"></textarea>`;
   } else if (c.tipo === 'checkbox_multiplo') {
     const chips = opcoes.map(o => `
-      <div onclick="toggleCheckPublico(this, '${c.campo}')" data-value="${o.value}" style="display:inline-block; cursor:pointer; font-size:11px; padding:5px 12px; border-radius:20px; border:1px solid rgba(255,255,255,0.1); color:#666; background:transparent; margin:0 6px 6px 0; transition:all 0.15s;">${o.label}</div>`).join('');
+      <div onclick="toggleCheckPublico(this, '${c.campo}')" data-value="${o.value}" style="display:inline-block; cursor:pointer; font-size:11px; padding:5px 12px; border-radius:20px; border:1px solid rgba(255,255,255,0.1); color:#999; background:transparent; margin:0 6px 6px 0; transition:all 0.15s;">${o.label}</div>`).join('');
     input = `<div id="field-${c.campo}" data-values='[]' style="padding-top:4px;">${chips}</div>`;
   } else {
     input = `<input id="field-${c.campo}" type="${c.tipo}" style="width:100%; background:var(--surface2); border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:8px 12px; color:#e8e8e6; font-size:13px;">`;
   }
 
-  return `<div style="margin-bottom:16px;"><label style="font-size:10px; color:#666; display:block; margin-bottom:6px;">${c.label.toUpperCase()}${c.obrigatorio ? ' *' : ''}</label>${input}</div>`;
+  return `<div style="margin-bottom:16px;"><label style="font-size:10px; color:#999; display:block; margin-bottom:6px;">${c.label.toUpperCase()}${c.obrigatorio ? ' *' : ''}</label>${input}</div>`;
 }
 
 function selectChipPublico(el, campo) {
@@ -131,8 +131,8 @@ function mostrarEtapaPublico(indice) {
   const ehUltima = indice === total - 1;
   const ehPrimeira = indice === 0;
   footer.innerHTML = `
-    <span style="font-size:11px; color:#666; margin-right:auto; align-self:center;">${indice + 1} / ${total}</span>
-    ${!ehPrimeira ? `<button onclick="voltarPublico()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#666; cursor:pointer;">voltar</button>` : ''}
+    <span style="font-size:11px; color:#999; margin-right:auto; align-self:center;">${indice + 1} / ${total}</span>
+    ${!ehPrimeira ? `<button onclick="voltarPublico()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#999; cursor:pointer;">voltar</button>` : ''}
     ${ehUltima
       ? `<button onclick="enviarPublico()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:none; background:#00e5a0; color:#0c0c0d; cursor:pointer; font-weight:500;">enviar</button>`
       : `<button onclick="avancarPublico()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:none; background:#00e5a0; color:#0c0c0d; cursor:pointer; font-weight:500;">avançar</button>`}`;

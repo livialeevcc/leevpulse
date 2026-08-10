@@ -14,10 +14,12 @@ function toggleSidebar() {
     sidebar.classList.remove('sidebar-hidden');
     sidebar.style.display = 'block';
     btn.textContent = '✕';
+    sessionStorage.setItem('pulse_sidebar', 'aberta');
   } else {
     sidebar.classList.add('sidebar-hidden');
     sidebar.style.display = 'none';
     btn.textContent = '☰';
+    sessionStorage.setItem('pulse_sidebar', 'fechada');
   }
 }
 
@@ -175,7 +177,7 @@ async function renderScreen(screenId, subAba) {
 
     itens.forEach(config => {
       const card = document.createElement('div');
-      const loading = '<span style="color:#444; font-size:11px;">carregando...</span>';
+      const loading = '<span style="color:#888; font-size:11px;">carregando...</span>';
       card.style.cssText = config.tipo_grafico === 'metric_card'
         ? ''
         : 'background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; overflow:visible;';
@@ -996,16 +998,14 @@ async function renderAba(aba) {
           wrapper.id = config.elemento_id;
           wrapper.style.cssText = 'margin-bottom:16px;';
           sidebar.appendChild(wrapper);
-          sidebar.style.display = 'block';
+          const salvo = sessionStorage.getItem('pulse_sidebar');
+          const fechada = salvo === 'fechada' || (!salvo && window.innerWidth < 768);
+          sidebar.classList.toggle('sidebar-hidden', fechada);
+          sidebar.style.display = fechada ? 'none' : 'block';
           const toggleBtn = document.getElementById('sidebar-toggle');
           if (toggleBtn) {
             toggleBtn.style.display = 'block';
-            toggleBtn.textContent = '✕';
-            if (window.innerWidth < 768) {
-              toggleBtn.textContent = '☰';
-              sidebar.classList.add('sidebar-hidden');
-              sidebar.style.display = 'none';
-            }
+            toggleBtn.textContent = fechada ? '☰' : '✕';
           }
           return;
         }
@@ -1046,7 +1046,7 @@ async function renderAba(aba) {
       itens.forEach(config => {
         const tituloEl = document.createElement('div');
         tituloEl.id = config.elemento_id;
-        tituloEl.style.cssText = 'font-size:10px; color:#666; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:8px; margin-top:12px; padding-left:8px; border-left:2px solid var(--accent);';
+        tituloEl.style.cssText = 'font-size:10px; color:#999; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:8px; margin-top:12px; padding-left:8px; border-left:2px solid var(--accent);';
         tituloEl.textContent = config.titulo;
         conteudo.appendChild(tituloEl);
       });
@@ -1066,7 +1066,7 @@ async function renderAba(aba) {
       card.style.cssText = config.tipo_grafico === 'metric_card'
         ? ''
         : 'background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; overflow:visible;';
-      const loading = '<span style="color:#444; font-size:11px;">carregando...</span>';
+      const loading = '<span style="color:#888; font-size:11px;">carregando...</span>';
       if (config.tipo_grafico === 'metric_card') {
         card.innerHTML = `<div id="${config.elemento_id}">${loading}</div>`;
       } else if (config.tipo_grafico === 'bar_stacked') {
@@ -1398,7 +1398,7 @@ async function renderMatrizCampo(configs, matrizConfig) {
     conteudo.innerHTML = '';
 
     if (matrizCampoSelecionados.length === 0) {
-      conteudo.innerHTML = `<div style="color:#444; font-size:11px; padding:20px; text-align:center;">selecione itens acima para montar a matriz</div>`;
+      conteudo.innerHTML = `<div style="color:#888; font-size:11px; padding:20px; text-align:center;">selecione itens acima para montar a matriz</div>`;
       finalizarProgresso();
       return;
     }
