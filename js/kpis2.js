@@ -28,6 +28,27 @@ function chaveCache(evento, lookups, view) {
   return (evento || '') + (dataInicio || '') + l + v;
 }
 
+function fontesDe(config) {
+  if (Array.isArray(config.fontes) && config.fontes.length) return config.fontes;
+  const lista = [];
+  if (config.evento || config.view_id) {
+    lista.push({ evento: config.evento, view_id: config.view_id, view_params: config.view_params, lookups: config.lookups, filtro: config.campo_filtro });
+  }
+  if (config.evento2) {
+    lista.push({ evento: config.evento2, view_id: config.view_id_evento2, view_params: config.view_params_evento2, lookups: config.lookups_evento2, filtro: config.campo_filtro2 });
+  }
+  return lista;
+}
+
+function chaveFonte(f) {
+  if (!f) return '';
+  return chaveCache(f.evento, f.lookups, f.view_id ? { id: f.view_id, params: f.view_params } : null);
+}
+
+function carregarFonte(f) {
+  return buscarEventos(f.evento, f.lookups, f.view_id ? { id: f.view_id, params: f.view_params } : null);
+}
+
 async function abrirScreen(screenId, campo, valor) {
   if (screenAtiva) {
     screenHistorico.push({ screen: screenAtiva, contexto: { ...screenContexto } });
@@ -442,7 +463,8 @@ async function buscarEventos(evento, lookups = null, view = null) {
 
       if (dataInicio && !view) query = query.gte('timestamp', dataInicio);
 
-      const { data } = await query;
+      const { data, error } = await query;
+      if (error) { console.error('buscarEventos falhou', { evento, view, error }); break; }
       if (!data || data.length === 0) break;
       if (view) data.forEach(r => { if (!r.timestamp && r.dados?.timestamp) r.timestamp = r.dados.timestamp; });
       todos.push(...data);
@@ -509,18 +531,13 @@ function setPeriodo(dias, btn) {
 
 async function renderGraficos(configs) {
   resetMetricCardIndex();
-  const cargas = {};
-  configs.forEach(c => {
-    const view = c.view_id ? { id: c.view_id, params: c.view_params } : null;
-    if (c.evento || view) {
-      const k = chaveCache(c.evento, c.lookups, view);
-      if (!cargas[k]) cargas[k] = { evento: c.evento, lookups: c.lookups, view };
-    }
-    if (c.evento2) {
-      const k2 = chaveCache(c.evento2, c.lookups_evento2);
-      if (!cargas[k2]) cargas[k2] = { evento: c.evento2, lookups: c.lookups_evento2 };
-    }
-  });
+    const cargas = {};
+    configs.forEach(c => {
+      fontesDe(c).forEach(f => {
+        const k = chaveFonte(f);
+        if (k && !cargas[k]) cargas[k] = f;
+      });
+    });
 
   const unidade = calcularUnidade(configs[0]?.aba);
 
@@ -528,8 +545,8 @@ async function renderGraficos(configs) {
 
   const eventosCache = {};
   await Promise.all(
-    Object.entries(cargas).map(([k, c]) =>
-      buscarEventos(c.evento, c.lookups, c.view).then(data => {
+    Object.entries(cargas).map(([k, f]) =>
+      carregarFonte(f).then(data => {
         eventosCache[k] = data;
       })
     )
@@ -543,7 +560,7 @@ async function renderGraficos(configs) {
     if (config.tipo_grafico === 'titulo' || config.tipo_grafico === 'filtro_periodo' || config.tipo_grafico === 'filtro_cliente') continue;
 
     if (config.tipo_grafico === 'filtro_campo') {
-      const cacheKey = chaveCache(config.evento, config.lookups, config.view_id ? { id: config.view_id, params: config.view_params } : null);
+      const cacheKey = chaveFonte(fontesDe(config)[0]);
       renderFiltroCampo({
         elementId: config.elemento_id,
         eventos: eventosGlobalCache[cacheKey] || [],
@@ -555,7 +572,7 @@ async function renderGraficos(configs) {
     }
 
     if (config.tipo_grafico === 'filtro_mes') {
-      const cacheKey = chaveCache(config.evento, config.lookups, config.view_id ? { id: config.view_id, params: config.view_params } : null);
+      const cacheKey = chaveFonte(fontesDe(config)[0]);
       renderFiltroMes({
         elementId: config.elemento_id,
         eventos: eventosGlobalCache[cacheKey] || [],
@@ -576,7 +593,8 @@ async function renderGraficos(configs) {
       continue;
     }
 
-    const eventos = eventosCache[chaveCache(config.evento, config.lookups, config.view_id ? { id: config.view_id, params: config.view_params } : null)];
+    const fontes = fontesDe(config);
+    const eventos = eventosCache[chaveFonte(fontes[0])];
 
     if (config.tipo_grafico === 'comparativo') {
       const el = document.getElementById(config.elemento_id);
@@ -586,7 +604,7 @@ async function renderGraficos(configs) {
       delete graficosInstancias[config.elemento_id];
     }
     el.innerHTML = '';
-      let filtroFinal = config.campo_filtro;
+      let filtroFinal = fontes[0]?.filtro;
       if (screenAtiva && screenContexto.campo) {
         const filtroBase = Array.isArray(filtroFinal) ? filtroFinal : (filtroFinal ? JSON.parse(filtroFinal) : []);
         filtroFinal = [...filtroBase, [screenContexto.campo, screenContexto.valor]];
@@ -607,7 +625,7 @@ async function renderGraficos(configs) {
       const el = document.getElementById(config.elemento_id);
       if (!el) continue;
       el.innerHTML = '';
-      let filtroFinal = config.campo_filtro;
+      let filtroFinal = fontes[0]?.filtro;
       if (screenAtiva && screenContexto.campo) {
         const filtroBase = Array.isArray(filtroFinal) ? filtroFinal : (filtroFinal ? JSON.parse(filtroFinal) : []);
         filtroFinal = [...filtroBase, [screenContexto.campo, screenContexto.valor]];
@@ -638,7 +656,7 @@ async function renderGraficos(configs) {
       continue;
     }
 
-    if ((config.funcao === 'series_dois_eventos_por_mes' || config.funcao === 'series_dois_eventos_por_grupo') && config.evento2) {
+    if ((config.funcao === 'series_dois_eventos_por_mes' || config.funcao === 'series_dois_eventos_por_grupo') && fontes[1]) {
       const el = document.getElementById(config.elemento_id);
       if (!el) continue;
       if (graficosInstancias[config.elemento_id]) {
@@ -646,8 +664,8 @@ async function renderGraficos(configs) {
         delete graficosInstancias[config.elemento_id];
       }
       el.innerHTML = '';
-      const eventos2 = eventosCache[chaveCache(config.evento2, config.lookups_evento2)];
-      const dados = funcoes[config.funcao](eventos, eventos2, config.campo_grupo, config.campo_valor, config.campo_filtro, config.parametros_funcao, config.campo_filtro2);
+      const eventos2 = eventosCache[chaveFonte(fontes[1])];
+      const dados = funcoes[config.funcao](eventos, eventos2, config.campo_grupo, config.campo_valor, fontes[0]?.filtro, config.parametros_funcao, fontes[1]?.filtro);
       if (config.tipo_grafico === 'linha') {
         renderLinha({ elementId: config.elemento_id, categorias: dados.categorias, series: dados.series, height: 400, formato: config.formato });
       } else {
@@ -656,7 +674,7 @@ async function renderGraficos(configs) {
       continue;
     }
 
-    if (config.funcao === 'percentual_cruzado_por_mes' && config.evento2) {
+    if (config.funcao === 'percentual_cruzado_por_mes' && fontes[1]) {
       const el = document.getElementById(config.elemento_id);
       if (!el) continue;
       if (graficosInstancias[config.elemento_id]) {
@@ -664,8 +682,8 @@ async function renderGraficos(configs) {
         delete graficosInstancias[config.elemento_id];
       }
       el.innerHTML = '';
-      const eventos2 = eventosCache[chaveCache(config.evento2, null)];
-      const dados = funcoes.percentual_cruzado_por_mes(eventos, eventos2, config.campo_grupo, config.campo_valor, config.campo_filtro);
+      const eventos2 = eventosCache[chaveFonte(fontes[1])];
+      const dados = funcoes.percentual_cruzado_por_mes(eventos, eventos2, config.campo_grupo, config.campo_valor, fontes[0]?.filtro);
       renderLinha({ elementId: config.elemento_id, categorias: dados.categorias, valores: dados.valores, label: config.titulo, height: 300, formato: 'percentual', meta: config.meta, numeradores: dados.numeradores, denominadores: dados.denominadores });
       continue;
     }
@@ -681,7 +699,7 @@ async function renderGraficos(configs) {
       const el = document.getElementById(config.elemento_id);
       if (!el) continue;
       el.innerHTML = '';
-      let filtroFinal = config.campo_filtro;
+      let filtroFinal = fontes[0]?.filtro;
       if (screenAtiva && screenContexto.campo) {
         const filtroBase = Array.isArray(filtroFinal) ? filtroFinal : (filtroFinal ? JSON.parse(filtroFinal) : []);
         filtroFinal = [...filtroBase, [screenContexto.campo, screenContexto.valor]];
@@ -696,7 +714,7 @@ async function renderGraficos(configs) {
     const fn = funcoes[config.funcao];
     if (!fn) continue;
 
-    let filtroFinal = config.campo_filtro;
+    let filtroFinal = fontes[0]?.filtro;
     if (screenAtiva && screenContexto.campo) {
       const filtroBase = Array.isArray(filtroFinal) ? filtroFinal : (filtroFinal ? JSON.parse(filtroFinal) : []);
       filtroFinal = [...filtroBase, [screenContexto.campo, screenContexto.valor]];
@@ -814,21 +832,60 @@ async function renderDashboard() {
   dashboard.innerHTML = '';
 
   const screenIds = kpiConfigsGlobal.filter(c => c.tipo_aba === 'screen').map(c => c.aba);
-  const abas = [...new Set(kpiConfigsGlobal.map(c => c.aba).filter(a => a && !screenIds.includes(a)))];
+  const todasAbas = [...new Set(kpiConfigsGlobal.map(c => c.aba).filter(a => a && !screenIds.includes(a)))];
+  const categorias = [...new Set(kpiConfigsGlobal.map(c => c.categoria).filter(Boolean))];
+  const categoriaSalva = sessionStorage.getItem('pulse_categoria') || (categorias.length > 0 ? categorias[0] : '');
+  let categoriaAtiva = categoriaSalva;
+
+  function getAbasDaCategoria(cat) {
+    if (!cat || categorias.length === 0) return todasAbas;
+    return [...new Set(kpiConfigsGlobal.filter(c => c.categoria === cat && !screenIds.includes(c.aba)).map(c => c.aba).filter(Boolean))];
+  }
+
+  let abas = getAbasDaCategoria(categoriaAtiva);
+  if (abas.length === 0) abas = todasAbas;
+
   const hashAba = window.location.hash.replace('#', '');
   abaAtiva = abas.includes(hashAba) ? hashAba : abas[0];
 
+  if (categorias.length > 1) {
+    const catEl = document.createElement('div');
+    catEl.id = 'zona-categorias';
+    catEl.style.cssText = 'display:flex; gap:6px; margin-bottom:12px;';
+    dashboard.appendChild(catEl);
+
+    renderCategorias({
+      containerId: 'zona-categorias',
+      categorias,
+      categoriaAtiva,
+      onSelect: (cat) => {
+        categoriaAtiva = cat;
+        abas = getAbasDaCategoria(cat);
+        abaAtiva = abas[0];
+        renderTabs();
+        trocarAba(abaAtiva);
+      }
+    });
+  }
+
   const tabsEl = document.createElement('div');
+  tabsEl.id = 'zona-tabs';
   tabsEl.style.cssText = 'display:flex; gap:4px; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.06);';
-  abas.forEach(aba => {
-    const btn = document.createElement('button');
-    btn.textContent = aba;
-    btn.className = 'tab-btn';
-    btn.style.cssText = `font-size:11px; padding:8px 16px; background:${aba === abaAtiva ? 'rgba(200,217,74,0.06)' : 'transparent'}; border:none; border-bottom:2px solid ${aba === abaAtiva ? 'var(--accent)' : 'transparent'}; color:${aba === abaAtiva ? 'var(--accent)' : '#666'}; cursor:pointer; border-radius:6px 6px 0 0;`;
-    btn.onclick = () => trocarAba(aba);
-    tabsEl.appendChild(btn);
-  });
   dashboard.appendChild(tabsEl);
+
+  function renderTabs() {
+    tabsEl.innerHTML = '';
+    abas.forEach(aba => {
+      const btn = document.createElement('button');
+      btn.textContent = aba;
+      btn.className = 'tab-btn';
+      btn.style.cssText = `font-size:11px; padding:8px 16px; background:${aba === abaAtiva ? 'rgba(200,217,74,0.06)' : 'transparent'}; border:none; border-bottom:2px solid ${aba === abaAtiva ? 'var(--accent)' : 'transparent'}; color:${aba === abaAtiva ? 'var(--accent)' : '#666'}; cursor:pointer; border-radius:6px 6px 0 0;`;
+      btn.onclick = () => trocarAba(aba);
+      tabsEl.appendChild(btn);
+    });
+  }
+
+  renderTabs();
 
   const controles = document.createElement('div');
   controles.id = 'zona-controles';
@@ -880,7 +937,7 @@ async function trocarAba(aba) {
   window.location.hash = aba;
   abaAtiva = aba;
   resetMetricCardIndex();
-  document.querySelectorAll('.tab-btn').forEach(b => {
+  document.querySelectorAll('#zona-tabs .tab-btn').forEach(b => {
     const isAtiva = b.textContent === aba;
     b.style.borderBottom = isAtiva ? '2px solid var(--accent)' : '2px solid transparent';
     b.style.color = isAtiva ? 'var(--accent)' : '#666';
@@ -1045,19 +1102,20 @@ async function renderMatriz(configs) {
     return;
   }
 
-  const chaveItem = (i) => chaveCache(i.evento, i.lookups, i.view_id ? { id: i.view_id, params: i.view_params } : null);
+  const chaveItem = (i) => chaveFonte(fontesDe(i)[0]);
 
   const cargas = {};
   itensMatriz.forEach(i => {
-    const k = chaveItem(i);
-    if (!cargas[k]) cargas[k] = { evento: i.evento, lookups: i.lookups, view: i.view_id ? { id: i.view_id, params: i.view_params } : null };
+    const f = fontesDe(i)[0];
+    const k = chaveFonte(f);
+    if (k && !cargas[k]) cargas[k] = f;
   });
 
   const eventosCache = {};
   iniciarProgressoLento();
   await Promise.all(
-    Object.entries(cargas).map(([k, c]) =>
-      buscarEventos(c.evento, c.lookups, c.view).then(data => { eventosCache[k] = data; })
+    Object.entries(cargas).map(([k, f]) =>
+      carregarFonte(f).then(data => { eventosCache[k] = data; })
     )
   );
 
@@ -1164,7 +1222,7 @@ const mesesSet = new Set();
       const eventosItemMes = porMesMatriz[chaveItem(def)] || [];
       const dadosAcum = item.formula
         ? { valor: resolverFormula(item.formula, cache) }
-        : await fn(eventosItemMes, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
+        : await fn(eventosItemMes, def.campo_grupo, def.campo_valor, fontesDe(def)[0]?.filtro || null);
       const valorAcumRaw = typeof dadosAcum.valor === 'string'
         ? parseFloat(dadosAcum.valor.replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.'))
         : dadosAcum.valor;
@@ -1178,7 +1236,7 @@ const mesesSet = new Set();
         const eventosDia = porDia[chaveItem(def)]?.[dia] || [];
         const dadosDia = item.formula
           ? { valor: resolverFormula(item.formula, cachePorDia[dia]) }
-          : await fn(eventosDia, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
+          : await fn(eventosDia, def.campo_grupo, def.campo_valor, fontesDe(def)[0]?.filtro || null);
         const valDia = typeof dadosDia.valor === 'string'
           ? parseFloat(dadosDia.valor.replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.'))
           : dadosDia.valor;
@@ -1235,19 +1293,20 @@ async function renderMatrizCampo(configs, matrizConfig) {
     return;
   }
 
-  const chaveItem = (i) => chaveCache(i.evento, i.lookups, i.view_id ? { id: i.view_id, params: i.view_params } : null);
+  const chaveItem = (i) => chaveFonte(fontesDe(i)[0]);
 
   const cargas = {};
   itensMatriz.forEach(i => {
-    const k = chaveItem(i);
-    if (!cargas[k]) cargas[k] = { evento: i.evento, lookups: i.lookups, view: i.view_id ? { id: i.view_id, params: i.view_params } : null };
+    const f = fontesDe(i)[0];
+    const k = chaveFonte(f);
+    if (k && !cargas[k]) cargas[k] = f;
   });
 
   const eventosCache = {};
   iniciarProgressoLento();
   await Promise.all(
-    Object.entries(cargas).map(([k, c]) =>
-      buscarEventos(c.evento, c.lookups, c.view).then(data => { eventosCache[k] = data; })
+    Object.entries(cargas).map(([k, f]) =>
+      carregarFonte(f).then(data => { eventosCache[k] = data; })
     )
   );
 
@@ -1380,7 +1439,7 @@ async function renderMatrizCampo(configs, matrizConfig) {
           const eventosFiltrados = porValor[chaveItem(def)]?.[val] || [];
           const dados = item.formula
             ? { valor: resolverFormula(item.formula, cachePorValor[val]) }
-            : await fn(eventosFiltrados, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
+            : await fn(eventosFiltrados, def.campo_grupo, def.campo_valor, fontesDe(def)[0]?.filtro || null);
           const valRaw = typeof dados.valor === 'string'
             ? parseFloat(dados.valor.replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.'))
             : dados.valor;
@@ -1433,19 +1492,20 @@ async function renderMatrizMes(configs, matrizConfig) {
     return;
   }
 
-  const chaveItem = (i) => chaveCache(i.evento, i.lookups, i.view_id ? { id: i.view_id, params: i.view_params } : null);
+  const chaveItem = (i) => chaveFonte(fontesDe(i)[0]);
 
   const cargas = {};
   itensMatriz.forEach(i => {
-    const k = chaveItem(i);
-    if (!cargas[k]) cargas[k] = { evento: i.evento, lookups: i.lookups, view: i.view_id ? { id: i.view_id, params: i.view_params } : null };
+    const f = fontesDe(i)[0];
+    const k = chaveFonte(f);
+    if (k && !cargas[k]) cargas[k] = f;
   });
 
   const eventosCache = {};
   iniciarProgressoLento();
   await Promise.all(
-    Object.entries(cargas).map(([k, c]) =>
-      buscarEventos(c.evento, c.lookups, c.view).then(data => { eventosCache[k] = data; })
+    Object.entries(cargas).map(([k, f]) =>
+      carregarFonte(f).then(data => { eventosCache[k] = data; })
     )
   );
 
@@ -1505,7 +1565,7 @@ async function renderMatrizMes(configs, matrizConfig) {
 
       const dadosAcum = item.formula
         ? { valor: resolverFormula(item.formula, cache) }
-        : await fn(eventosItem, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
+        : await fn(eventosItem, def.campo_grupo, def.campo_valor, fontesDe(def)[0]?.filtro || null);
       const valorAcumRaw = typeof dadosAcum.valor === 'string'
         ? parseFloat(dadosAcum.valor.replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.'))
         : dadosAcum.valor;
@@ -1518,7 +1578,7 @@ async function renderMatrizMes(configs, matrizConfig) {
         const eventosMes = porMes[chaveItem(def)]?.[mes] || [];
         const dadosMes = item.formula
           ? { valor: resolverFormula(item.formula, cachePorMes[mes]) }
-          : await fn(eventosMes, def.campo_grupo, def.campo_valor, def.campo_filtro || null);
+          : await fn(eventosMes, def.campo_grupo, def.campo_valor, fontesDe(def)[0]?.filtro || null);
         const valMes = typeof dadosMes.valor === 'string'
           ? parseFloat(dadosMes.valor.replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.'))
           : dadosMes.valor;

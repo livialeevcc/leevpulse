@@ -153,6 +153,53 @@ async function load(user) {
   const actions = await loadActions();
   const tabsBar = document.getElementById('tabs-bar');
 
+  const categorias = [...new Set(actions.map(a => a.categoria).filter(Boolean))];
+  const categoriaSalva = sessionStorage.getItem('pulse_categoria_form') || (categorias.length > 0 ? categorias[0] : '');
+  let categoriaAtivaForm = categoriaSalva;
+
+  let catContainer = document.getElementById('zona-categorias-form');
+  if (!catContainer) {
+    catContainer = document.createElement('div');
+    catContainer.id = 'zona-categorias-form';
+    catContainer.style.cssText = 'display:flex; gap:6px; margin-bottom:12px;';
+    tabsBar.parentNode.insertBefore(catContainer, tabsBar);
+  }
+
+  function filtrarTabsPorCategoria(cat) {
+    tabsBar.querySelectorAll('.tab-btn').forEach(btn => {
+      const action = actions.find(a => a.label === btn.textContent);
+      if (!cat || categorias.length === 0 || !action?.categoria) {
+        btn.style.display = '';
+      } else {
+        btn.style.display = action.categoria === cat ? '' : 'none';
+      }
+    });
+    document.querySelectorAll('#action-buttons button').forEach(btn => {
+      const label = btn.textContent.replace('+ ', '');
+      const action = actions.find(a => a.label === label);
+      if (!cat || categorias.length === 0 || !action?.categoria) {
+        btn.style.display = '';
+      } else {
+        btn.style.display = action.categoria === cat ? '' : 'none';
+      }
+    });
+  }
+
+  if (categorias.length > 1) {
+    renderCategorias({
+      containerId: 'zona-categorias-form',
+      categorias,
+      categoriaAtiva: categoriaAtivaForm,
+      onSelect: (cat) => {
+        categoriaAtivaForm = cat;
+        sessionStorage.setItem('pulse_categoria_form', cat);
+        filtrarTabsPorCategoria(cat);
+        const primeiraVisivel = tabsBar.querySelector('.tab-btn[style*="display: "]') || tabsBar.querySelector('.tab-btn:not([style*="display: none"])');
+        if (primeiraVisivel) primeiraVisivel.click();
+      }
+    });
+  }
+
   actions.forEach((a, i) => {
     const tab = document.createElement('button');
     tab.textContent = a.label;
@@ -174,6 +221,12 @@ async function load(user) {
 
     if (i === 0) setTimeout(() => tab.click(), 0);
   });
+
+  if (categorias.length > 1) {
+    filtrarTabsPorCategoria(categoriaAtivaForm);
+    const primeiraVisivel = tabsBar.querySelector('.tab-btn:not([style*="display: none"])');
+    if (primeiraVisivel) setTimeout(() => primeiraVisivel.click(), 10);
+  }
 }
 
 sb.channel('pulse')
