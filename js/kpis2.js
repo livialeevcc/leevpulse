@@ -1110,23 +1110,21 @@ async function renderMatriz(configs) {
   }
 
   const chaveItem = (i) => chaveFonte(fontesDe(i)[0]);
-
-  const cargas = {};
-  itensMatriz.forEach(i => {
-    const f = fontesDe(i)[0];
-    const k = chaveFonte(f);
-    if (k && !cargas[k]) cargas[k] = f;
-  });
-
   const eventosCache = {};
   iniciarProgressoLento();
-  await Promise.all(
-    Object.entries(cargas).map(([k, f]) =>
-      carregarFonte(f).then(data => { eventosCache[k] = data; })
-    )
-  );
-
-const mesesSet = new Set();
+  const carregarGrupo = async (itens) => {
+    const c = {};
+    itens.forEach(i => {
+      const f = fontesDe(i)[0];
+      const k = chaveFonte(f);
+      if (k && !eventosCache[k] && !c[k]) c[k] = f;
+    });
+    await Promise.all(Object.entries(c).map(([k, f]) =>
+      carregarFonte(f).then(data => { eventosCache[k] = data; })));
+  };
+  const grupoInicial = itensMatriz.find(x => x.grupo)?.grupo;
+  await carregarGrupo(itensMatriz.filter(i => i.grupo === grupoInicial));
+  const mesesSet = new Set();
   Object.values(eventosCache).flat().forEach(r => {
     mesesSet.add(String(r.timestamp).substring(0, 7));
   });
@@ -1151,20 +1149,23 @@ const mesesSet = new Set();
   });
   const porDia = {};
   const porMesMatriz = {};
-  Object.entries(eventosCache).forEach(([k, lista]) => {
-    porDia[k] = {};
-    porMesMatriz[k] = [];
-    lista.forEach(r => {
-      const iso = String(r.timestamp).substring(0, 10);
-      if (iso.substring(0, 7) !== mesSelecionado) return;
-      porMesMatriz[k].push(r);
-      const [, mes, d] = iso.split('-');
-      const dia = `${d}/${mes}`;
-      if (!porDia[k][dia]) porDia[k][dia] = [];
-      porDia[k][dia].push(r);
+  const indexarDia = () => {
+    Object.entries(eventosCache).forEach(([k, lista]) => {
+      if (porDia[k]) return;
+      porDia[k] = {};
+      porMesMatriz[k] = [];
+      lista.forEach(r => {
+        const iso = String(r.timestamp).substring(0, 10);
+        if (iso.substring(0, 7) !== mesSelecionado) return;
+        porMesMatriz[k].push(r);
+        const [, mes, d] = iso.split('-');
+        const dia = `${d}/${mes}`;
+        if (!porDia[k][dia]) porDia[k][dia] = [];
+        porDia[k][dia].push(r);
+      });
     });
-  });
-
+  };
+  indexarDia();
   const zonaFiltros = document.getElementById('zona-controles');
   zonaFiltros.innerHTML = '';
   const wrapMeses = document.createElement('div');
@@ -1203,16 +1204,19 @@ const mesesSet = new Set();
   table.appendChild(thead);
 
   const tbody = document.createElement('tbody');
-
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  conteudo.appendChild(wrap);
   const cache = {};
   const itensOrdenados = ordenarPorDependencia(itensMatriz);
-
   const cachePorDia = {};
   for (const dia of dias) {
     cachePorDia[dia] = {};
   }
-
   for (const grupo of grupos) {
+    await new Promise(r => setTimeout(r, 0));
+    await carregarGrupo(itensMatriz.filter(i => i.grupo === grupo));
+    indexarDia();
     const secRow = document.createElement('tr');
     secRow.className = 'section-row';
     secRow.innerHTML = `<td colspan="${dias.length + 2}">${grupo}</td>`;
@@ -1272,11 +1276,7 @@ const mesesSet = new Set();
     }
   }
 
-    table.appendChild(tbody);
-    wrap.appendChild(table);
-    conteudo.appendChild(wrap);
     finalizarProgresso();
-
     tbody.querySelectorAll('[data-formula]').forEach(el => {
     const formula = el.dataset.formula;
     if (!formula) return;
@@ -1417,16 +1417,17 @@ async function renderMatrizCampo(configs, matrizConfig) {
       }).join('')}
     </tr>`;
     table.appendChild(thead);
-
     const tbody = document.createElement('tbody');
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    conteudo.appendChild(wrap);
     const grupos = [...new Set(itensMatriz.map(i => i.grupo).filter(Boolean))];
     const itensOrdenados = ordenarPorDependencia(itensMatriz);
-
     const cacheGlobal = {};
     const cachePorValor = {};
     matrizCampoSelecionados.forEach(val => { cachePorValor[val] = {}; });
-
     for (const grupo of grupos) {
+      await new Promise(r => setTimeout(r, 0));
       const secRow = document.createElement('tr');
       secRow.className = 'section-row';
       secRow.innerHTML = `<td colspan="${matrizCampoSelecionados.length + 1}">${grupo}</td>`;
@@ -1471,9 +1472,6 @@ async function renderMatrizCampo(configs, matrizConfig) {
       }
     }
 
-      table.appendChild(tbody);
-      wrap.appendChild(table);
-      conteudo.appendChild(wrap);
       finalizarProgresso();
       tbody.querySelectorAll('[data-formula]').forEach(el => {
         const formula = el.dataset.formula;
@@ -1500,22 +1498,20 @@ async function renderMatrizMes(configs, matrizConfig) {
   }
 
   const chaveItem = (i) => chaveFonte(fontesDe(i)[0]);
-
-  const cargas = {};
-  itensMatriz.forEach(i => {
-    const f = fontesDe(i)[0];
-    const k = chaveFonte(f);
-    if (k && !cargas[k]) cargas[k] = f;
-  });
-
   const eventosCache = {};
   iniciarProgressoLento();
-  await Promise.all(
-    Object.entries(cargas).map(([k, f]) =>
-      carregarFonte(f).then(data => { eventosCache[k] = data; })
-    )
-  );
-
+  const carregarGrupo = async (itens) => {
+    const c = {};
+    itens.forEach(i => {
+      const f = fontesDe(i)[0];
+      const k = chaveFonte(f);
+      if (k && !eventosCache[k] && !c[k]) c[k] = f;
+    });
+    await Promise.all(Object.entries(c).map(([k, f]) =>
+      carregarFonte(f).then(data => { eventosCache[k] = data; })));
+  };
+  const grupoInicial = itensMatriz.find(x => x.grupo)?.grupo;
+  await carregarGrupo(itensMatriz.filter(i => i.grupo === grupoInicial));
   const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
   const mesesSet = new Set();
   Object.values(eventosCache).flat().forEach(r => {
@@ -1524,15 +1520,18 @@ async function renderMatrizMes(configs, matrizConfig) {
   const meses = [...mesesSet].sort();
 
   const porMes = {};
-  Object.entries(eventosCache).forEach(([k, lista]) => {
-    porMes[k] = {};
-    meses.forEach(m => { porMes[k][m] = []; });
-    lista.forEach(r => {
-      const m = String(r.timestamp).substring(0, 7);
-      if (porMes[k][m]) porMes[k][m].push(r);
+  const indexarMes = () => {
+    Object.entries(eventosCache).forEach(([k, lista]) => {
+      if (porMes[k]) return;
+      porMes[k] = {};
+      meses.forEach(m => { porMes[k][m] = []; });
+      lista.forEach(r => {
+        const m = String(r.timestamp).substring(0, 7);
+        if (porMes[k][m]) porMes[k][m].push(r);
+      });
     });
-  });
-
+  };
+  indexarMes();
   const grupos = [...new Set(itensMatriz.map(i => i.grupo).filter(Boolean))];
   const wrap = document.createElement('div');
   wrap.className = 'matriz-wrap';
@@ -1551,12 +1550,19 @@ async function renderMatrizMes(configs, matrizConfig) {
   table.appendChild(thead);
 
   const tbody = document.createElement('tbody');
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  conteudo.appendChild(wrap);
+
   const cache = {};
   const itensOrdenados = ordenarPorDependencia(itensMatriz);
   const cachePorMes = {};
   meses.forEach(m => { cachePorMes[m] = {}; });
 
   for (const grupo of grupos) {
+    await new Promise(r => setTimeout(r, 0));
+    await carregarGrupo(itensMatriz.filter(i => i.grupo === grupo));
+    indexarMes();
     const secRow = document.createElement('tr');
     secRow.className = 'section-row';
     secRow.innerHTML = `<td colspan="${meses.length + 2}">${grupo}</td>`;
@@ -1614,9 +1620,6 @@ async function renderMatrizMes(configs, matrizConfig) {
     }
   }
 
-  table.appendChild(tbody);
-  wrap.appendChild(table);
-  conteudo.appendChild(wrap);
   finalizarProgresso();
 
   tbody.querySelectorAll('[data-formula]').forEach(el => {
