@@ -15,7 +15,7 @@ function renderBarHorizontal({ elementId, categorias, valores, label, media, hei
     }]
   } : {};
 
-  const alturaReal = Math.max(height, categorias.length * 28);
+  const alturaReal = Math.max(160, Math.min(height, categorias.length * 52));
 
   if (graficosInstancias[elementId]) {
     graficosInstancias[elementId].updateOptions({ xaxis: { categories: categorias, labels: { formatter: (val) => fmt(val) } }, annotations });
@@ -34,7 +34,7 @@ function renderBarHorizontal({ elementId, categorias, valores, label, media, hei
     },
     theme: { mode: 'dark' },
     plotOptions: {
-      bar: { horizontal: true, borderRadius: 4 }
+      bar: { horizontal: true, borderRadius: 4, barHeight: '60%' }
     },
     dataLabels: {
       enabled: true,

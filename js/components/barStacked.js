@@ -32,7 +32,13 @@ function renderBarStacked({ elementId, categorias, series, horizontal = true, he
     series,
     xaxis: { categories: categorias },
     colors: coresAjustadas,
-    yaxis: { labels: { formatter: (val) => funcoes.formatarValor(val, formato) } },
+    yaxis: {
+      labels: {
+        maxWidth: horizontal ? 320 : undefined,
+        style: horizontal ? { fontSize: '11px' } : undefined,
+        formatter: (val) => (typeof val === 'number' ? funcoes.formatarValor(val, formato) : val)
+      }
+    },
     grid: { borderColor: 'rgba(255,255,255,0.06)' },
     legend: { show: legenda, position: 'bottom', labels: { colors: '#999' }, fontFamily: 'Montserrat', fontSize: '11px' },
     tooltip: { theme: 'dark', y: { formatter: (val) => funcoes.formatarValor(val, formato) } }

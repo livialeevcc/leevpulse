@@ -21,14 +21,16 @@ function renderLista({ elementId, categorias, valores, formato, onClick, badges,
   function montarSub(valor) {
     if (sub === 'nenhum') return '';
     if (sub === 'escala' && subMax) return (valor / subMax * 100).toFixed(1) + '%';
+    if (valores.some(v => v < 0)) return '';
     return (total > 0 ? (valor / total * 100) : 0).toFixed(1) + '%';
   }
 
   function montarItem(nome, i) {
     const valor = valores[i];
     const cor = paletaCores[i % paletaCores.length];
-    const base = barraMax || valores[0];
-    const barPct = base > 0 ? Math.min(valor / base * 100, 100) : 0;
+    const temNegativo = valores.some(v => v < 0);
+    const base = barraMax || (temNegativo ? Math.max(...valores.map(v => Math.abs(v || 0))) : valores[0]);
+    const barPct = base > 0 ? Math.min(Math.abs(valor) / base * 100, 100) : 0;
     const faixa = montarBadge(valor);
     const badgeTexto = faixa ? faixa.label : (badges && badges[nome] ? badges[nome] : null);
     const badgeCor = faixa ? faixa.cor

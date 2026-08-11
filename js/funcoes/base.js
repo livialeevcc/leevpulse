@@ -302,6 +302,27 @@ const funcoes = {
     return { categorias, valores: categorias.map(k => funcoes.arredondar(map[k], 2)) };
   },
 
+  media_por_grupo: (eventos, campoGrupo, campoValor, campoFiltro, params) => {
+    const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
+    const map = {};
+    filtrados.forEach(r => {
+      const grupo = r.dados?.[campoGrupo] || '—';
+      const val = parseFloat(String(r.dados?.[campoValor] ?? '').replace(',', '.'));
+      if (isNaN(val)) return;
+      if (!map[grupo]) map[grupo] = { soma: 0, n: 0 };
+      map[grupo].soma += val;
+      map[grupo].n++;
+    });
+    const ordem = (params && params.ordem) || 'desc';
+    const categorias = Object.keys(map).sort((a, b) => {
+      const va = map[a].soma / map[a].n, vb = map[b].soma / map[b].n;
+      return ordem === 'asc' ? va - vb : vb - va;
+    });
+    const limite = parseInt(params && params.limite) || 0;
+    const finais = limite > 0 ? categorias.slice(0, limite) : categorias;
+    return { categorias: finais, valores: finais.map(k => funcoes.arredondar(map[k].soma / map[k].n, 1)) };
+  },
+
   contar_por_mes: (eventos, campoGrupo, campoValor, campoFiltro) => {
     const filtrados = funcoes.aplicarFiltro(eventos, campoFiltro);
     const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
