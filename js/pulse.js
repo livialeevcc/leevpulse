@@ -449,6 +449,7 @@ async function openModal(evento, label, schema) {
     <button onclick="closeModal()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#999; cursor:pointer;">cancelar</button>
     <button onclick="submitForm()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:none; background:#00e5a0; color:#0c0c0d; cursor:pointer; font-weight:500;">registrar</button>`;
 
+    ativarAutoSave();
   document.getElementById('modal-overlay').style.display = 'flex';
 }
 
@@ -1144,6 +1145,17 @@ function salvarRascunho() {
   }
   dados._etapa = wizardEtapaAtual;
   localStorage.setItem(chaveRascunho(), JSON.stringify(dados));
+}
+
+function ativarAutoSave() {
+  const fields = document.getElementById('modal-fields');
+  if (!fields) return;
+  fields.addEventListener('input', () => salvarRascunho());
+  fields.addEventListener('click', (e) => {
+    if (e.target.dataset.value !== undefined || e.target.closest('[data-value]')) {
+      setTimeout(() => salvarRascunho(), 50);
+    }
+  });
 }
 
 function carregarRascunho() {
