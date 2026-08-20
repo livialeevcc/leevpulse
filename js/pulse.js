@@ -777,6 +777,9 @@ async function editRow(r) {
 }
 
 async function submitForm() {
+  const btns = document.querySelectorAll('#modal-footer button');
+  btns.forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
+
   const now = new Date();
   const caseId = currentCaseId || 'PULSE-' + now.getFullYear()
     + String(now.getMonth()+1).padStart(2,'0')
@@ -795,12 +798,12 @@ async function submitForm() {
 
     if (c.tipo === 'checkbox_multiplo') {
       dados[c.campo] = JSON.parse(el.dataset.values || '[]');
-      if (c.obrigatorio && dados[c.campo].length === 0) { alert(c.label + ' é obrigatório'); return; }
+            if (c.obrigatorio && dados[c.campo].length === 0) { alert(c.label + ' é obrigatório'); btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; }); return; }
       continue;
     }
 
     const val = (el.tagName === 'SELECT' ? el.value : el.tagName === 'TEXTAREA' ? el.value : el.tagName === 'DIV' ? el.dataset.value : el.dataset.value || el.value || '').trim();
-    if (c.obrigatorio && !val) { alert(c.label + ' é obrigatório'); return; }
+        if (c.obrigatorio && !val) { alert(c.label + ' é obrigatório'); btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; }); return; }
     if (c.campo === 'hora_relato' && val) {
       const [h, m] = val.split(':');
       const d = new Date();
@@ -838,7 +841,7 @@ async function submitForm() {
     tenant_id: getTenantAtivo(),
     dados
   });
-  if (error) { alert('erro ao salvar: ' + error.message); return; }
+    if (error) { alert('erro ao salvar: ' + error.message); btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; }); return; }
   limparRascunho();
 
   if (mensagemFinalAtual) {
