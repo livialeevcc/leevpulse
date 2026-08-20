@@ -219,7 +219,7 @@ async function load(user) {
     };
     document.getElementById('action-buttons').appendChild(btn);
 
-    if (i === 0) setTimeout(() => tab.click(), 0);
+        if (i === 0 && categorias.length <= 1) setTimeout(() => tab.click(), 0);
   });
 
   if (categorias.length > 1) {
@@ -450,6 +450,37 @@ async function openModal(evento, label, schema) {
     <button onclick="submitForm()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:none; background:#00e5a0; color:#0c0c0d; cursor:pointer; font-weight:500;">registrar</button>`;
 
     ativarAutoSave();
+    const rascunho = carregarRascunho();
+  if (rascunho) {
+    for (const c of schema) {
+      if (c.tipo === 'descricao') continue;
+      const el = document.getElementById('field-' + c.campo);
+      if (!el || !rascunho[c.campo]) continue;
+      if (c.tipo === 'checkbox_multiplo') {
+        el.dataset.values = JSON.stringify(rascunho[c.campo]);
+        const marcados = rascunho[c.campo];
+        el.querySelectorAll('div[data-value]').forEach(chip => {
+          const ativo = marcados.includes(chip.dataset.value);
+          chip.style.borderColor = ativo ? '#00e5a0' : 'rgba(255,255,255,0.1)';
+          chip.style.color = ativo ? '#00e5a0' : '#999';
+          chip.style.background = ativo ? 'rgba(0,229,160,0.08)' : 'transparent';
+        });
+      } else if (el.tagName === 'DIV' && el.dataset.value !== undefined) {
+        el.dataset.value = rascunho[c.campo];
+        el.querySelectorAll('div[data-value]').forEach(chip => {
+          const ativo = chip.dataset.value === rascunho[c.campo];
+          chip.style.borderColor = ativo ? '#00e5a0' : 'rgba(255,255,255,0.1)';
+          chip.style.color = ativo ? '#00e5a0' : '#999';
+          chip.style.background = ativo ? 'rgba(0,229,160,0.08)' : 'transparent';
+        });
+      } else if (el.tagName === 'SELECT') {
+        el.value = rascunho[c.campo];
+      } else {
+        el.value = rascunho[c.campo];
+      }
+    }
+  }
+  ativarAutoSave();
   document.getElementById('modal-overlay').style.display = 'flex';
 }
 
