@@ -831,15 +831,15 @@ async function submitForm() {
     }
   }
 
-  const { error } = await sb.from('events').insert({
+    const { error } = await sb.from('events').insert({
     case_id: caseId,
     evento: currentEvento,
     operador_id: currentUser?.email || 'leev.user',
     tenant_id: getTenantAtivo(),
     dados
   });
-
   if (error) { alert('erro ao salvar: ' + error.message); return; }
+  limparRascunho();
 
   if (mensagemFinalAtual) {
     document.getElementById('modal-title').textContent = '';
@@ -1005,7 +1005,40 @@ async function openModalWizard(evento, label, schema, reguaPontos, mensagemFinal
     fields.appendChild(stepDiv);
   }
 
-  mostrarEtapaWizard(0);
+    const rascunho = carregarRascunho();
+  if (rascunho) {
+    for (const c of schema) {
+      if (c.tipo === 'descricao') continue;
+      const el = document.getElementById('field-' + c.campo);
+      if (!el || !rascunho[c.campo]) continue;
+      if (c.tipo === 'checkbox_multiplo') {
+        el.dataset.values = JSON.stringify(rascunho[c.campo]);
+        const marcados = rascunho[c.campo];
+        el.querySelectorAll('div[data-value]').forEach(chip => {
+          const ativo = marcados.includes(chip.dataset.value);
+          chip.style.borderColor = ativo ? '#00e5a0' : 'rgba(255,255,255,0.1)';
+          chip.style.color = ativo ? '#00e5a0' : '#999';
+          chip.style.background = ativo ? 'rgba(0,229,160,0.08)' : 'transparent';
+        });
+      } else if (el.tagName === 'DIV' && el.dataset.value !== undefined) {
+        el.dataset.value = rascunho[c.campo];
+        el.querySelectorAll('div[data-value]').forEach(chip => {
+          const ativo = chip.dataset.value === rascunho[c.campo];
+          chip.style.borderColor = ativo ? '#00e5a0' : 'rgba(255,255,255,0.1)';
+          chip.style.color = ativo ? '#00e5a0' : '#999';
+          chip.style.background = ativo ? 'rgba(0,229,160,0.08)' : 'transparent';
+        });
+      } else if (el.tagName === 'SELECT') {
+        el.value = rascunho[c.campo];
+      } else {
+        el.value = rascunho[c.campo];
+      }
+    }
+    const etapaSalva = rascunho._etapa || 0;
+    mostrarEtapaWizard(etapaSalva);
+  } else {
+    mostrarEtapaWizard(0);
+  }
   document.getElementById('modal-overlay').style.display = 'flex';
 }
 
@@ -1088,8 +1121,44 @@ function validarEtapaWizard(indice) {
   return true;
 }
 
+function chaveRascunho() {
+  return `pulse_rascunho_${getTenantAtivo()}_${currentEvento}`;
+}
+
+function salvarRascunho() {
+  const dados = {};
+  for (const c of currentSchema) {
+    if (c.tipo === 'descricao') continue;
+    const el = document.getElementById('field-' + c.campo);
+    if (!el) continue;
+    if (c.tipo === 'checkbox_multiplo') {
+      dados[c.campo] = JSON.parse(el.dataset.values || '[]');
+    } else if (el.tagName === 'DIV') {
+      dados[c.campo] = el.dataset.value || '';
+    } else {
+      dados[c.campo] = el.dataset.value || el.value || '';
+    }
+  }
+  dados._etapa = wizardEtapaAtual;
+  localStorage.setItem(chaveRascunho(), JSON.stringify(dados));
+}
+
+function carregarRascunho() {
+  try {
+    const salvo = localStorage.getItem(chaveRascunho());
+    return salvo ? JSON.parse(salvo) : null;
+  } catch(e) {
+    return null;
+  }
+}
+
+function limparRascunho() {
+  localStorage.removeItem(chaveRascunho());
+}
+
 function avancarEtapaWizard() {
   if (!validarEtapaWizard(wizardEtapaAtual)) return;
+  salvarRascunho();
   if (wizardEtapaAtual < wizardEtapas.length - 1) {
     mostrarEtapaWizard(wizardEtapaAtual + 1);
   }
@@ -1097,6 +1166,7 @@ function avancarEtapaWizard() {
 
 function voltarEtapaWizard() {
   if (wizardEtapaAtual > 0) {
+    salvarRascunho();
     mostrarEtapaWizard(wizardEtapaAtual - 1);
   }
 }
