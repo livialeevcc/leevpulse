@@ -776,9 +776,52 @@ function abrirDetalheWizard(caseId) {
     fields.innerHTML += html;
   }
 
-  document.getElementById('modal-footer').innerHTML = `
-    <button onclick="closeModal()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#999; cursor:pointer;">fechar</button>`;
+    document.getElementById('modal-footer').innerHTML = `
+    <button onclick="closeModal()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#999; cursor:pointer;">fechar</button>
+    <button onclick="editarWizard('${caseId}')" style="font-size:11px; padding:8px 16px; border-radius:6px; border:none; background:#00e5a0; color:#0c0c0d; cursor:pointer; font-weight:500;">editar</button>`;
 
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+
+async function editarWizard(caseId) {
+  const { registro, schema } = registrosWizard[caseId];
+  const dados = registro.dados || {};
+
+  currentEvento = registro.evento;
+  currentSchema = schema;
+  currentCaseId = caseId;
+  reguaPontosAtual = currentAction?.regua_pontos || null;
+  mensagemFinalAtual = currentAction?.mensagem_final || null;
+
+  const etapasSet = [...new Set(schema.map(c => c.etapa))].sort((a, b) => a - b);
+  wizardEtapas = etapasSet;
+  wizardEtapaAtual = 0;
+
+  document.getElementById('modal-title').textContent = 'Editar';
+  const linkBtn = document.getElementById('modal-link-btn');
+  if (linkBtn) linkBtn.style.display = 'none';
+
+  const fields = document.getElementById('modal-fields');
+  fields.innerHTML = '';
+
+  for (const etapa of etapasSet) {
+    const camposEtapa = schema.filter(c => c.etapa === etapa);
+    const stepDiv = document.createElement('div');
+    stepDiv.className = 'wizard-step';
+    stepDiv.dataset.etapa = etapa;
+    stepDiv.style.display = 'none';
+
+    const camposHtml = await Promise.all(camposEtapa.map(c => {
+      const valorAtual = dados[c.campo] || '';
+      const valorPai = c.depende_de ? dados[c.depende_de] || null : null;
+      return renderCampo(c, valorAtual, valorPai);
+    }));
+    stepDiv.innerHTML = camposHtml.join('');
+    fields.appendChild(stepDiv);
+  }
+
+  mostrarEtapaWizard(0);
+  ativarAutoSave();
   document.getElementById('modal-overlay').style.display = 'flex';
 }
 
@@ -812,14 +855,13 @@ async function submitForm() {
   const btns = document.querySelectorAll('#modal-footer button');
   btns.forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
 
-  const now = new Date();
+    const now = new Date();
   const caseId = currentCaseId || 'PULSE-' + now.getFullYear()
     + String(now.getMonth()+1).padStart(2,'0')
     + String(now.getDate()).padStart(2,'0') + '-'
     + String(now.getHours()).padStart(2,'0')
     + String(now.getMinutes()).padStart(2,'0')
     + String(now.getSeconds()).padStart(2,'0');
-  currentCaseId = null;
 
   const dados = {};
   for (const c of currentSchema) {
@@ -866,15 +908,26 @@ async function submitForm() {
     }
   }
 
-    const { error } = await sb.from('events').insert({
-    case_id: caseId,
-    evento: currentEvento,
-    operador_id: currentUser?.email || 'leev.user',
-    tenant_id: getTenantAtivo(),
-    dados
-  });
+        let error;
+    if (currentCaseId) {
+      const res = await sb.from('events')
+        .update({ dados, operador_id: currentUser?.email || 'leev.user' })
+        .eq('case_id', caseId)
+        .eq('tenant_id', getTenantAtivo());
+      error = res.error;
+    } else {
+      const res = await sb.from('events').insert({
+        case_id: caseId,
+        evento: currentEvento,
+        operador_id: currentUser?.email || 'leev.user',
+        tenant_id: getTenantAtivo(),
+        dados
+      });
+      error = res.error;
+    }
     if (error) { alert('erro ao salvar: ' + error.message); btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; }); return; }
   limparRascunho();
+  currentCaseId = null;
 
   if (mensagemFinalAtual) {
     document.getElementById('modal-title').textContent = '';
