@@ -926,8 +926,18 @@ async function submitForm() {
       error = res.error;
     }
     if (error) { alert('erro ao salvar: ' + error.message); btns.forEach(b => { b.disabled = false; b.style.opacity = '1'; }); return; }
-  limparRascunho();
+    limparRascunho();
+  const eraEdicao = currentCaseId != null;
   currentCaseId = null;
+
+  if (eraEdicao) {
+    const btnAtiva = document.querySelector('.tab-btn[style*="rgb(0, 229, 160)"]') || document.querySelector('.tab-btn');
+    if (btnAtiva) {
+      closeModal();
+      switchTab(currentTab, currentAction?.label || '', btnAtiva, currentAction);
+      return;
+    }
+  }
 
   if (mensagemFinalAtual) {
     document.getElementById('modal-title').textContent = '';
@@ -1147,9 +1157,11 @@ function atualizarNavegacaoWizard() {
   const ehUltima = atual === total - 1;
   const ehPrimeira = atual === 0;
 
+    const editando = currentCaseId != null;
   footer.innerHTML = `
     <span style="font-size:11px; color:#999; margin-right:auto; align-self:center;">${atual + 1} / ${total}</span>
     ${!ehPrimeira ? `<button onclick="voltarEtapaWizard()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#999; cursor:pointer;">voltar</button>` : ''}
+    ${editando && !ehUltima ? `<button onclick="submitForm()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:1px solid rgba(200,217,74,0.3); background:transparent; color:var(--accent); cursor:pointer;">salvar</button>` : ''}
     ${ehUltima
       ? `<button onclick="submitForm()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:none; background:#00e5a0; color:#0c0c0d; cursor:pointer; font-weight:500;">finalizar</button>`
       : `<button onclick="avancarEtapaWizard()" style="font-size:11px; padding:8px 16px; border-radius:6px; border:none; background:#00e5a0; color:#0c0c0d; cursor:pointer; font-weight:500;">avançar</button>`
