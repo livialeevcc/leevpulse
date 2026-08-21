@@ -119,9 +119,9 @@ function toggleMenu(id) {
 function filtrarTabela(termo) {
   const tbody = document.getElementById('tbody');
   const linhas = tbody.querySelectorAll('tr');
-  const busca = termo.toLowerCase();
+  const busca = termo.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   linhas.forEach(tr => {
-    const texto = tr.textContent.toLowerCase();
+    const texto = tr.textContent.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     tr.style.display = texto.includes(busca) ? '' : 'none';
   });
 }
